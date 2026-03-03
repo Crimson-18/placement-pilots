@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import logo from "@/assets/logo.png";
 
 const navLinks = [
+  { label: "Feed", path: "/home" },
   { label: "Companies", path: "/companies" },
   { label: "Eligibility", path: "/eligibility" },
   { label: "Experiences", path: "/experiences" },
