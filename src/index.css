@@ -6,49 +6,53 @@
 
 @layer base {
   :root {
-    --background: 222 47% 8%;
-    --foreground: 210 40% 96%;
+    /* Dark vibrant theme tokens */
+    --background: 220 20% 6%; /* deep navy */
+    --foreground: 210 98% 96%; /* light text */
 
-    --card: 222 47% 10%;
-    --card-foreground: 210 40% 96%;
+    --card: 220 20% 10%; /* dark card */
+    --card-foreground: 210 98% 96%;
 
-    --popover: 222 47% 10%;
-    --popover-foreground: 210 40% 96%;
+    --popover: 220 20% 10%;
+    --popover-foreground: 210 98% 96%;
 
-    --primary: 239 84% 67%;
+    --primary: 225 95% 60%; /* vivid electric blue */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 47% 14%;
-    --secondary-foreground: 210 40% 96%;
+    --secondary: 230 60% 12%;
+    --secondary-foreground: 210 98% 96%;
 
-    --muted: 222 30% 16%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 220 18% 12%;
+    --muted-foreground: 215 10% 70%;
 
-    --accent: 239 84% 67%;
+    --accent: 285 95% 56%; /* vivid purple accent */
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 348 85% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 20% 18%;
-    --input: 222 20% 18%;
-    --ring: 239 84% 67%;
+    --border: 220 18% 12%; /* dark border */
+    --input: 220 18% 10%;
+    --ring: 225 95% 60%;
 
-    --radius: 0.75rem;
-
-    --sidebar-background: 222 47% 6%;
-    --sidebar-foreground: 210 40% 96%;
-    --sidebar-primary: 239 84% 67%;
+    --sidebar-background: 222 16% 8%;
+    --sidebar-foreground: 210 98% 96%;
+    --sidebar-primary: 225 95% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 14%;
-    --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 222 20% 18%;
-    --sidebar-ring: 239 84% 67%;
+    --sidebar-accent: 285 95% 56%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 220 18% 12%;
+    --sidebar-ring: 225 95% 60%;
+
+    --surface: 220 20% 8%;
+    --surface-foreground: 210 98% 96%;
+    --highlight: 225 95% 60%;
+    --highlight-foreground: 0 0% 100%;
 
     /* Custom tokens */
-    --surface: 222 47% 12%;
-    --surface-foreground: 210 40% 96%;
-    --highlight: 239 84% 67%;
+    --surface: 212 20% 99%;
+    --surface-foreground: 210 12% 18%;
+    --highlight: 212 95% 46%;
     --highlight-foreground: 0 0% 100%;
     --success: 142 71% 45%;
     --warning: 38 92% 50%;
@@ -62,6 +66,13 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    /* dark vibrant background with subtle nebula-like radial highlights */
+    background-image: radial-gradient(800px 480px at 10% 10%, rgba(80,120,255,0.10), transparent 18%), radial-gradient(600px 360px at 85% 80%, rgba(180,80,255,0.06), transparent 18%), linear-gradient(180deg, rgba(6,10,23,1) 0%, rgba(12,18,36,1) 100%);
+    background-attachment: fixed;
+    /* make the background gradient move very slowly left-right */
+    background-size: 300% 300%;
+    animation: bgMove 80s linear infinite;
+    color-scheme: dark;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -71,15 +82,56 @@
 
 @layer utilities {
   .glass-card {
-    @apply bg-card border border-border rounded-2xl;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+    /* liquid glass card: darker core with blurred animated rim */
+    @apply bg-card rounded-2xl;
+    background: linear-gradient(160deg, rgba(10,14,28,0.82), rgba(14,20,36,0.72));
+    /* remove solid border to avoid hard glowing edge */
+    border: none;
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    box-shadow: 0 10px 30px rgba(10,18,40,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+    border-radius: 18px;
+    position: relative;
+    overflow: hidden;
   }
+
+  /* animated, blurred rim for liquid border (no hard glowing line) */
+  .glass-card::before {
+    content: '';
+    position: absolute;
+    left: -4px; right: -4px; top: -4px; bottom: -4px;
+    border-radius: inherit;
+    background: conic-gradient(from 0deg, rgba(80,140,255,0.12), rgba(140,80,255,0.08), rgba(80,220,200,0.06), rgba(120,180,255,0.10));
+    filter: blur(16px) saturate(140%);
+    opacity: 0.75;
+    z-index: 0;
+    pointer-events: none;
+    transform: translateZ(0);
+    mix-blend-mode: screen;
+    animation: rimShift 12s ease-in-out infinite;
+  }
+
+  .glass-card > * { position: relative; z-index: 1; }
   
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-400;
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
   }
 
   .glow {
-    box-shadow: 0 0 20px hsl(239 84% 67% / 0.15);
+    /* softened glow for ambient effect only, not a hard border */
+    box-shadow: 0 20px 60px rgba(40,80,160,0.14), 0 8px 30px rgba(90,50,160,0.06) inset;
   }
+}
+
+@keyframes rimShift {
+  0% { transform: translateX(-6px) scale(1); }
+  50% { transform: translateX(6px) scale(1.02); }
+  100% { transform: translateX(-6px) scale(1); }
+}
+
+@keyframes bgMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }

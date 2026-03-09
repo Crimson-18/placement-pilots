@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { motion } from "framer-motion";
-import { Star, MessageSquare, ArrowBigUp, ArrowBigDown, Clock, TrendingUp, Flame, Filter } from "lucide-react";
+import { Star, MessageSquare, Clock, TrendingUp, Flame, Filter, Heart, Repeat, Share2, MoreHorizontal } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 type SortType = "hot" | "new" | "top";
@@ -148,32 +148,24 @@ const mockPosts = [
 
 const Home = () => {
   const [sort, setSort] = useState<SortType>("hot");
-  const [votes, setVotes] = useState<Record<number, number>>(() =>
+  const [likes, setLikes] = useState<Record<number, number>>(() =>
     Object.fromEntries(mockPosts.map((p) => [p.id, p.upvotes]))
   );
-  const [voted, setVoted] = useState<Record<number, "up" | "down" | null>>({});
+  const [liked, setLiked] = useState<Record<number, boolean>>({});
 
-  const handleVote = (id: number, dir: "up" | "down") => {
-    setVoted((prev) => {
-      const current = prev[id];
-      const newVoted = { ...prev };
-      if (current === dir) {
-        newVoted[id] = null;
-        setVotes((v) => ({ ...v, [id]: v[id] + (dir === "up" ? -1 : 1) }));
-      } else {
-        newVoted[id] = dir;
-        const delta = dir === "up" ? 1 : -1;
-        const revert = current === "up" ? -1 : current === "down" ? 1 : 0;
-        setVotes((v) => ({ ...v, [id]: v[id] + delta + revert }));
-      }
-      return newVoted;
+  const handleLike = (id: number) => {
+    setLiked((prev) => {
+      const isLiked = !!prev[id];
+      const next = { ...prev, [id]: !isLiked };
+      setLikes((l) => ({ ...l, [id]: l[id] + (isLiked ? -1 : 1) }));
+      return next;
     });
   };
 
   const sortedPosts = [...mockPosts].sort((a, b) => {
     if (sort === "new") return 0;
-    if (sort === "top") return (votes[b.id] ?? 0) - (votes[a.id] ?? 0);
-    return (votes[b.id] ?? 0) + b.comments * 2 - ((votes[a.id] ?? 0) + a.comments * 2);
+    if (sort === "top") return (likes[b.id] ?? 0) - (likes[a.id] ?? 0);
+    return (likes[b.id] ?? 0) + b.comments * 2 - ((likes[a.id] ?? 0) + a.comments * 2);
   });
 
   return (
@@ -229,92 +221,69 @@ const Home = () => {
                   transition={{ delay: i * 0.04 }}
                   className="glass-card flex"
                 >
-                  {/* Vote Column */}
-                  <div className="flex flex-col items-center gap-0.5 px-3 py-4 border-r border-border/50">
-                    <button
-                      onClick={() => handleVote(post.id, "up")}
-                      className={`p-0.5 rounded transition-colors ${
-                        voted[post.id] === "up" ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      <ArrowBigUp className="h-5 w-5" />
-                    </button>
-                    <span className={`text-xs font-bold ${
-                      voted[post.id] === "up" ? "text-primary" : voted[post.id] === "down" ? "text-destructive" : "text-foreground"
-                    }`}>
-                      {votes[post.id]}
-                    </span>
-                    <button
-                      onClick={() => handleVote(post.id, "down")}
-                      className={`p-0.5 rounded transition-colors ${
-                        voted[post.id] === "down" ? "text-destructive" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      <ArrowBigDown className="h-5 w-5" />
-                    </button>
+                  {/* Left: avatar + votes (compact, Twitter-like) */}
+                  <div className="flex items-start px-3 py-3 min-w-[64px]">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="text-sm font-semibold bg-primary/10 text-primary">
+                        {post.avatar}
+                      </AvatarFallback>
+                    </Avatar>
                   </div>
 
-                  {/* Content */}
-                  <div className="flex-1 p-4">
-                    {/* Header */}
-                    <div className="flex items-center gap-2 mb-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarFallback className="text-[10px] font-semibold bg-primary/10 text-primary">
-                          {post.avatar}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">{post.user}</span>
-                        {" · "}{post.branch} '{post.year.toString().slice(-2)}
-                        {" · "}{post.date}
-                      </span>
-                      <span className={`ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                        post.difficulty === "Hard"
-                          ? "bg-destructive/10 text-destructive"
-                          : post.difficulty === "Easy"
-                          ? "bg-emerald-500/10 text-emerald-400"
-                          : "bg-amber-500/10 text-amber-400"
-                      }`}>
-                        {post.difficulty}
-                      </span>
-                    </div>
-
-                    {/* Title */}
-                    <h3 className="font-display text-base font-semibold text-foreground mb-1">
-                      {post.company} — {post.role}
-                    </h3>
-
-                    {/* Rounds */}
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {post.rounds.map((r, idx) => (
-                        <span key={idx} className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                          {r}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Tips */}
-                    <p className="text-sm text-muted-foreground leading-relaxed mb-3 line-clamp-2">
-                      {post.tips}
-                    </p>
-
-                    {/* Tags & Footer */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-wrap gap-1.5">
-                        {post.tags.map((tag) => (
-                          <span key={tag} className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-border text-muted-foreground">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1">
-                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                          <span className="text-xs font-medium text-foreground">{post.rating}</span>
+                  {/* Main content */}
+                  <div className="flex-1 p-3">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm text-foreground">{post.user}</span>
+                          <span className="text-xs text-muted-foreground">· {post.branch} '{post.year.toString().slice(-2)}</span>
+                          <span className="text-xs text-muted-foreground">· {post.date}</span>
+                          <span className={`ml-2 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                            post.difficulty === "Hard"
+                              ? "bg-destructive/10 text-destructive"
+                              : post.difficulty === "Easy"
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : "bg-amber-500/10 text-amber-400"
+                          }`}>{post.difficulty}</span>
                         </div>
-                        <div className="flex items-center gap-1 text-muted-foreground">
-                          <MessageSquare className="h-3.5 w-3.5" />
-                          <span className="text-xs">{post.comments}</span>
+
+                        <div className="mt-2">
+                          <div className="font-display text-base font-semibold text-foreground">{post.company} — {post.role}</div>
+                          <p className="text-sm text-muted-foreground mt-2 mb-2 leading-relaxed">{post.tips}</p>
+
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {post.rounds.map((r, idx) => (
+                              <span key={idx} className="text-[11px] px-2 py-1 rounded-full bg-secondary text-muted-foreground">{r}</span>
+                            ))}
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-1 hover:text-foreground transition-colors">
+                                <MessageSquare className="h-4 w-4" />
+                                <span className="text-xs">{post.comments}</span>
+                              </div>
+                              <div className="flex items-center gap-1 hover:text-foreground transition-colors">
+                                <Repeat className="h-4 w-4" />
+                                <span className="text-xs">0</span>
+                              </div>
+                              <button onClick={() => handleLike(post.id)} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                                <Heart className={`h-4 w-4 ${liked[post.id] ? "text-primary fill-current" : ""}`} />
+                                <span className="text-xs">{likes[post.id]}</span>
+                              </button>
+                              <div className="flex items-center gap-1 hover:text-foreground transition-colors">
+                                <Share2 className="h-4 w-4" />
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-1">
+                                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                                <span className="text-xs font-medium text-foreground">{post.rating}</span>
+                              </div>
+                              <MoreHorizontal className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>

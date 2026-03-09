@@ -18,7 +18,9 @@ const Navbar = () => {
         <Link to="/" className="flex items-center gap-2">
           <img src={logo} alt="Placement Pilot" className="h-10 w-10 object-contain" />
           <span className="font-display text-lg font-bold text-foreground">
-            Placement <span className="text-primary">Pilot</span>
+            <a href="/home" className="text-primary">
+              Placement <span className="text-primary">Pilot</span>
+            </a>
           </span>
         </Link>
 

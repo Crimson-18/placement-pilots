@@ -27,9 +27,9 @@ const features = [
 ];
 
 const stats = [
-  { value: "500+", label: "Experiences" },
-  { value: "120+", label: "Companies" },
-  { value: "2,000+", label: "Students" },
+  { value: "10+", label: "Experiences" },
+  { value: "1+", label: "Companies" },
+  { value: "10+", label: "Students" },
   { value: "95%", label: "Accuracy" },
 ];
 
