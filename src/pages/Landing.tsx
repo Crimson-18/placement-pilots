@@ -63,7 +63,7 @@ const Landing = () => {
                 Get Started <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                to="/eligibility"
+                to="/login"
                 className="inline-flex items-center gap-2 rounded-lg border border-border px-6 py-3 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
               >
                 Check Eligibility

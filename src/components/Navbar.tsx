@@ -1,5 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import logo from "@/assets/logo.png";
+import { useAuth } from "@/context/AuthContext";
+import { LogOut } from "lucide-react";
 
 const navLinks = [
   { label: "Feed", path: "/home" },
@@ -10,6 +12,7 @@ const navLinks = [
 
 const Navbar = () => {
   const location = useLocation();
+  const { isAuthenticated, user, logout } = useAuth();
   const isLanding = location.pathname === "/";
 
   return (
@@ -25,7 +28,7 @@ const Navbar = () => {
         </Link>
 
         <div className="hidden md:flex items-center gap-8">
-          {navLinks.map((link) => (
+          {isAuthenticated && navLinks.map((link) => (
             <Link
               key={link.path}
               to={link.path}
@@ -41,18 +44,35 @@ const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link
-            to="/login"
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Log in
-          </Link>
-          <Link
-            to="/register"
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            Get Started
-          </Link>
+          {isAuthenticated ? (
+            <>
+              <div className="text-sm text-muted-foreground">
+                {user?.email}
+              </div>
+              <button
+                onClick={logout}
+                className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Log in
+              </Link>
+              <Link
+                to="/register"
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                Get Started
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>

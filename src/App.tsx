@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/context/AuthContext";
 import Landing from "./pages/Landing";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -13,29 +14,32 @@ import EligibilityChecker from "./pages/EligibilityChecker";
 import Experiences from "./pages/Experiences";
 import PostExperience from "./pages/PostExperience";
 import NotFound from "./pages/NotFound";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/home" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/companies" element={<Companies />} />
-          <Route path="/eligibility" element={<EligibilityChecker />} />
-          <Route path="/experiences" element={<Experiences />} />
-          <Route path="/post-experience" element={<PostExperience />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/home" element={<ProtectedRoute element={<Home />} />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
+            <Route path="/companies" element={<ProtectedRoute element={<Companies />} />} />
+            <Route path="/eligibility" element={<ProtectedRoute element={<EligibilityChecker />} />} />
+            <Route path="/experiences" element={<ProtectedRoute element={<Experiences />} />} />
+            <Route path="/post-experience" element={<ProtectedRoute element={<PostExperience />} />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

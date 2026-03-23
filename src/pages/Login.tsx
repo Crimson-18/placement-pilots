@@ -1,17 +1,37 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { useAuth } from "@/context/AuthContext";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Will connect to n8n backend
-    console.log("Login:", { email, password });
+    setError("");
+    
+    try {
+      // Validate input
+      if (!email || !password) {
+        setError("Please fill in all fields");
+        return;
+      }
+
+      // Call login function from AuthContext
+      await login(email, password);
+      
+      // Redirect to dashboard on successful login
+      navigate("/dashboard");
+    } catch (err) {
+      setError("Login failed. Please try again.");
+      console.error("Login error:", err);
+    }
   };
 
   return (
@@ -26,6 +46,11 @@ const Login = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="glass-card p-6 space-y-4">
+          {error && (
+            <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">College Email</label>
             <input
