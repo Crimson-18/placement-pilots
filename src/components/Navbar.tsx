@@ -1,13 +1,14 @@
 import { Link, useLocation } from "react-router-dom";
 import logo from "@/assets/logo.png";
 import { useAuth } from "@/context/AuthContext";
-import { LogOut } from "lucide-react";
+import { LogOut, Clock } from "lucide-react";
 
 const navLinks = [
   { label: "Feed", path: "/home" },
   { label: "Companies", path: "/companies" },
   { label: "Eligibility", path: "/eligibility" },
   { label: "Experiences", path: "/experiences" },
+  { label: "History", path: "/history", icon: Clock },
 ];
 
 const Navbar = () => {
@@ -18,37 +19,42 @@ const Navbar = () => {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <img src={logo} alt="Placement Pilot" className="h-10 w-10 object-contain" />
           <span className="font-display text-lg font-bold text-foreground">
-            <a href="/home" className="text-primary">
-              Placement <span className="text-primary">Pilot</span>
-            </a>
+            Placement <span className="text-primary">Pilot</span>
           </span>
         </Link>
 
         <div className="hidden md:flex items-center gap-8">
-          {isAuthenticated && navLinks.map((link) => (
-            <Link
-              key={link.path}
-              to={link.path}
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                location.pathname === link.path
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {isAuthenticated && navLinks.map((link) => {
+            const Icon = (link as any).icon;
+            return (
+              <Link
+                key={link.path}
+                to={link.path}
+                className={`text-sm font-medium transition-colors hover:text-primary flex items-center gap-1.5 ${
+                  location.pathname === link.path
+                    ? "text-primary"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {Icon && <Icon className="h-4 w-4" />}
+                {link.label}
+              </Link>
+            );
+          })}
         </div>
 
         <div className="flex items-center gap-3">
           {isAuthenticated ? (
             <>
-              <div className="text-sm text-muted-foreground">
-                {user?.email}
-              </div>
+              <Link
+                to="/dashboard"
+                className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+              >
+                {user?.name || user?.email}
+              </Link>
               <button
                 onClick={logout}
                 className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"

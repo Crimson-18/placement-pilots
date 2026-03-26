@@ -1,24 +1,23 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
-import { Target, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
-
-const mockCompanies = [
-  { name: "Google", minCGPA: 8.0, branches: ["CSE", "IT", "ECE"], skills: ["DSA", "System Design", "React"] },
-  { name: "Microsoft", minCGPA: 7.5, branches: ["CSE", "IT", "ECE", "EE"], skills: ["DSA", "OOP", "SQL"] },
-  { name: "Amazon", minCGPA: 7.0, branches: ["CSE", "IT"], skills: ["DSA", "System Design"] },
-  { name: "Goldman Sachs", minCGPA: 8.5, branches: ["CSE", "IT", "ECE", "EE", "ME"], skills: ["DSA", "Puzzles", "Java"] },
-  { name: "Flipkart", minCGPA: 7.0, branches: ["CSE", "IT", "ECE"], skills: ["DSA", "System Design", "React"] },
-  { name: "Uber", minCGPA: 7.5, branches: ["CSE", "IT"], skills: ["DSA", "System Design", "Python"] },
-];
+import { useAuth } from "@/context/AuthContext";
+import { saveEligibilityCheck, logUserActivity } from "@/lib/historyService";
+import { fetchAllCompanies } from "@/lib/companyService";
+import { Target, CheckCircle, XCircle, AlertTriangle, Loader } from "lucide-react";
 
 const allBranches = ["CSE", "ECE", "ME", "CE", "EE", "IT", "PIE", "CHE"];
-const allSkills = ["DSA", "System Design", "React", "Node.js", "Python", "Java", "SQL", "OOP", "ML", "Puzzles"];
+const allSkills = ["DSA", "System Design", "React", "Node.js", "Python", "Java", "SQL", "OOP", "ML", "Puzzles", "C++", "Database Management", "Financial Markets Knowledge", "Analytics", "Business Acumen", "Communication", "Leadership", "Presentation"];
 
 const EligibilityChecker = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [cgpa, setCgpa] = useState("");
   const [branch, setBranch] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
   const [results, setResults] = useState<any[] | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const toggleSkill = (skill: string) => {
     setSkills((prev) =>
@@ -26,24 +25,97 @@ const EligibilityChecker = () => {
     );
   };
 
-  const checkEligibility = (e: React.FormEvent) => {
+  const checkEligibility = async (e: React.FormEvent) => {
     e.preventDefault();
     const cgpaVal = parseFloat(cgpa);
 
-    const res = mockCompanies.map((company) => {
-      const cgpaMatch = cgpaVal >= company.minCGPA;
-      const branchMatch = company.branches.includes(branch);
-      const matchedSkills = company.skills.filter((s) => skills.includes(s));
-      const skillMatch = company.skills.length > 0 ? (matchedSkills.length / company.skills.length) * 100 : 0;
-      const missingSkills = company.skills.filter((s) => !skills.includes(s));
-      const eligible = cgpaMatch && branchMatch;
-      const overallMatch = Math.round((skillMatch + (cgpaMatch ? 50 : 0) + (branchMatch ? 50 : 0)) / 2);
+    try {
+      setLoading(true);
+      
+      // Fetch companies from Supabase
+      const companies = await fetchAllCompanies();
 
-      return { ...company, cgpaMatch, branchMatch, skillMatch: Math.round(skillMatch), missingSkills, eligible, overallMatch };
-    });
+      const res = companies.map((company) => {
+        const cgpaMatch = cgpaVal >= company.min_cgpa;
+        const branchMatch = company.eligible_branches.includes(branch);
+        
+        // Calculate skill match percentage
+        const matchedSkills = company.required_skills.filter((s: string) => skills.includes(s));
+        const skillMatch = company.required_skills.length > 0 
+          ? (matchedSkills.length / company.required_skills.length) * 100 
+          : 0;
+        
+        const missingSkills = company.required_skills.filter((s: string) => !skills.includes(s));
+        
+        // Eligible only if CGPA and branch match
+        const eligible = cgpaMatch && branchMatch;
+        
+        // Overall match score calculation
+        const overallMatch = Math.round(
+          (skillMatch + (cgpaMatch ? 50 : 0) + (branchMatch ? 50 : 0)) / 2
+        );
 
-    res.sort((a, b) => b.overallMatch - a.overallMatch);
-    setResults(res);
+        return {
+          id: company.id,
+          name: company.name,
+          description: company.description,
+          minCgpa: company.min_cgpa,
+          minCGPA: company.min_cgpa, // Keep both for compatibility
+          branches: company.eligible_branches,
+          eligible_branches: company.eligible_branches,
+          skills: company.required_skills,
+          selection_rounds: company.selection_rounds,
+          cgpaMatch,
+          branchMatch,
+          skillMatch: Math.round(skillMatch),
+          missingSkills,
+          eligible,
+          overallMatch,
+        };
+      });
+
+      // Sort by eligibility first, then by overall match
+      res.sort((a, b) => {
+        if (a.eligible !== b.eligible) {
+          return a.eligible ? -1 : 1; // Eligible first
+        }
+        return b.overallMatch - a.overallMatch;
+      });
+
+      setResults(res);
+      setLoading(false);
+
+      // Save the check result to database if user is logged in
+      if (user?.id) {
+        setIsSaving(true);
+        try {
+          const savedCheck = await saveEligibilityCheck(
+            user.id,
+            cgpaVal,
+            branch,
+            skills,
+            res
+          );
+
+          if (savedCheck) {
+            // Log the activity
+            await logUserActivity(
+              user.id,
+              "eligibility_check",
+              `Checked eligibility for ${branch} branch with CGPA ${cgpaVal}`,
+              savedCheck.id
+            );
+          }
+        } catch (err) {
+          console.error("Error saving eligibility check:", err);
+        } finally {
+          setIsSaving(false);
+        }
+      }
+    } catch (err) {
+      console.error("Error checking eligibility:", err);
+      setLoading(false);
+    }
   };
 
   return (
@@ -109,45 +181,188 @@ const EligibilityChecker = () => {
 
           <button
             type="submit"
-            className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+            disabled={isSaving || loading}
+            className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Target className="h-4 w-4" /> Check Eligibility
+            {loading ? (
+              <>
+                <Loader className="h-4 w-4 animate-spin" /> Loading companies...
+              </>
+            ) : (
+              <>
+                <Target className="h-4 w-4" /> {isSaving ? "Saving..." : "Check Eligibility"}
+              </>
+            )}
           </button>
         </form>
 
         {results && (
           <div className="space-y-3">
-            <h2 className="font-display text-lg font-semibold text-foreground">Results</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-lg font-semibold text-foreground">Results</h2>
+              <span className="text-xs text-muted-foreground">
+                {results.filter(r => r.eligible).length} eligible • {results.length} total
+              </span>
+            </div>
+
             {results.map((r, i) => (
-              <div key={i} className={`glass-card p-4 ${r.eligible ? "border-success/20" : "border-destructive/10"}`}>
-                <div className="flex items-center justify-between mb-2">
+              <div
+                key={i}
+                className={`glass-card p-5 border-l-4 transition-all ${
+                  r.eligible
+                    ? "border-emerald-500/50 bg-emerald-500/5"
+                    : "border-destructive/50 bg-destructive/5"
+                }`}
+              >
+                {/* Header with company name and match score */}
+                <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
                     {r.eligible ? (
-                      <CheckCircle className="h-4 w-4 text-success" />
+                      <CheckCircle className="h-5 w-5 text-emerald-500" />
                     ) : (
-                      <XCircle className="h-4 w-4 text-destructive" />
+                      <XCircle className="h-5 w-5 text-destructive" />
                     )}
-                    <h3 className="font-display font-semibold text-foreground">{r.name}</h3>
+                    <div>
+                      <h3 className="font-display font-semibold text-foreground text-sm">{r.name}</h3>
+                      {r.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{r.description}</p>
+                      )}
+                    </div>
                   </div>
-                  <span className={`text-sm font-semibold ${r.overallMatch >= 70 ? "text-success" : r.overallMatch >= 40 ? "text-warning" : "text-destructive"}`}>
-                    {r.overallMatch}% match
-                  </span>
+                  <div className="text-right">
+                    <div
+                      className={`text-lg font-bold ${
+                        r.overallMatch >= 70
+                          ? "text-emerald-500"
+                          : r.overallMatch >= 40
+                          ? "text-amber-500"
+                          : "text-destructive"
+                      }`}
+                    >
+                      {r.overallMatch}%
+                    </div>
+                    <p className="text-xs text-muted-foreground">match</p>
+                  </div>
                 </div>
-                <div className="flex gap-4 text-xs text-muted-foreground mb-2">
-                  <span className={r.cgpaMatch ? "text-success" : "text-destructive"}>
-                    CGPA: {r.minCGPA} min {r.cgpaMatch ? "✓" : "✗"}
-                  </span>
-                  <span className={r.branchMatch ? "text-success" : "text-destructive"}>
-                    Branch {r.branchMatch ? "✓" : "✗"}
-                  </span>
-                  <span>Skill match: {r.skillMatch}%</span>
+
+                {/* Criteria status */}
+                <div className="grid grid-cols-3 gap-3 mb-3 p-3 bg-background/50 rounded-lg">
+                  {/* CGPA Check */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Min CGPA</p>
+                    <div className="flex items-center gap-1">
+                      <span
+                        className={`text-sm font-semibold ${
+                          r.cgpaMatch ? "text-emerald-500" : "text-destructive"
+                        }`}
+                      >
+                        {r.minCgpa}
+                      </span>
+                      {r.cgpaMatch ? (
+                        <CheckCircle className="h-4 w-4 text-emerald-500" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-destructive" />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Branch Check */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Branch</p>
+                    <div className="flex items-center gap-1">
+                      <span
+                        className={`text-sm font-semibold ${
+                          r.branchMatch ? "text-emerald-500" : "text-destructive"
+                        }`}
+                      >
+                        {r.branchMatch ? "✓" : "✗"}
+                      </span>
+                      {r.branchMatch ? (
+                        <CheckCircle className="h-4 w-4 text-emerald-500" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-destructive" />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Skill Match Percentage */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Skills Match</p>
+                    <div className="flex items-center gap-1">
+                      <span
+                        className={`text-sm font-semibold ${
+                          r.skillMatch >= 70
+                            ? "text-emerald-500"
+                            : r.skillMatch >= 40
+                            ? "text-amber-500"
+                            : "text-destructive"
+                        }`}
+                      >
+                        {r.skillMatch}%
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                {r.missingSkills.length > 0 && (
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <AlertTriangle className="h-3 w-3 text-warning" />
-                    <span className="text-muted-foreground">Missing: {r.missingSkills.join(", ")}</span>
+
+                {/* Selection Rounds if available */}
+                {r.selection_rounds && r.selection_rounds.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-muted-foreground mb-1.5">Selection Process:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {r.selection_rounds.map((round: string) => (
+                        <span
+                          key={round}
+                          className="text-[11px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground"
+                        >
+                          {round}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
+
+                {/* Eligibility Status and Missing Skills */}
+                <div className="border-t border-border/30 pt-2">
+                  {!r.eligible && (
+                    <div className="flex items-start gap-2 mb-2 p-2 bg-destructive/10 rounded">
+                      <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+                      <div className="text-xs text-destructive">
+                        {!r.cgpaMatch && !r.branchMatch ? (
+                          <span>
+                            Not eligible: CGPA {cgpa} is below minimum ({r.minCgpa}) and branch {branch} is not
+                            eligible
+                          </span>
+                        ) : !r.cgpaMatch ? (
+                          <span>Not eligible: CGPA {cgpa} is below minimum ({r.minCgpa})</span>
+                        ) : (
+                          <span>Not eligible: Branch {branch} is not in eligible branches</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {r.missingSkills.length > 0 && (
+                    <div className="flex items-start gap-2 p-2 bg-amber-500/10 rounded">
+                      <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <div className="text-xs text-amber-600">
+                        <span className="font-medium">Missing skills: </span>
+                        {r.missingSkills.join(", ")}
+                      </div>
+                    </div>
+                  )}
+
+                  {r.eligible && r.missingSkills.length === 0 && (
+                    <div className="text-xs text-emerald-600 p-2 bg-emerald-500/10 rounded font-medium">
+                      ✓ You meet all criteria for this company!
+                    </div>
+                  )}
+
+                  {r.eligible && r.missingSkills.length > 0 && (
+                    <div className="text-xs text-emerald-600 p-2 bg-emerald-500/10 rounded font-medium">
+                      ✓ Eligible! Consider learning: {r.missingSkills.join(", ")}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>

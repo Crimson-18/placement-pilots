@@ -1,22 +1,21 @@
-# Welcome to your Lovable project
+# Placement Pilot - College Placement Intelligence Platform
 
-## Project info
+## Project Overview
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+Placement Pilot is a comprehensive college placement intelligence platform that helps students prepare for placements, check eligibility, and learn from real interview experiences shared by other students.
+
+## Features
+
+- 🎯 **Eligibility Checker**: Check your eligibility for companies based on CGPA, branch, and skills
+- 📖 **Interview Experiences**: Browse verified interview experiences from real placements
+- 🏢 **Company Database**: Explore companies, their selection criteria, and required skills
+- 💾 **User Profiles**: Maintain your profile with branch, CGPA, and graduation year
+- ❤️ **Like System**: Rate and like experiences that helped you
+- 🔐 **Email Verification**: Secure authentication system
 
 ## How can I edit this code?
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+You can work locally using your preferred IDE. Simply clone this repository and make your changes.
 
 The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
@@ -62,12 +61,24 @@ This project is built with:
 
 ## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+You can deploy this project to various platforms:
 
-## Can I connect a custom domain to my Lovable project?
+### Deploy to Vercel
+1. Push your code to GitHub
+2. Connect your repository to Vercel
+3. Vercel will automatically build and deploy your project
+4. Set environment variables for Supabase in project settings
 
-Yes, you can!
+### Deploy to Other Platforms
+- **Netlify**: Connect GitHub repo for continuous deployment
+- **AWS Amplify**: Deploy directly from Git repository
+- **Traditional Servers**: Use `npm run build` and serve the `dist` folder
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Custom Domain Setup
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+To connect a custom domain to your deployed application:
+
+1. Purchase a domain from a registrar
+2. Update DNS records to point to your deployment platform
+3. Configure the domain in your hosting platform's settings
+4. Enable SSL/TLS for secure connections

@@ -8,11 +8,13 @@ import Landing from "./pages/Landing";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import VerifyEmail from "./pages/VerifyEmail";
 import Dashboard from "./pages/Dashboard";
 import Companies from "./pages/Companies";
 import EligibilityChecker from "./pages/EligibilityChecker";
 import Experiences from "./pages/Experiences";
 import PostExperience from "./pages/PostExperience";
+import History from "./pages/History";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -30,11 +32,13 @@ const App = () => (
             <Route path="/home" element={<ProtectedRoute element={<Home />} />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
             <Route path="/companies" element={<ProtectedRoute element={<Companies />} />} />
             <Route path="/eligibility" element={<ProtectedRoute element={<EligibilityChecker />} />} />
             <Route path="/experiences" element={<ProtectedRoute element={<Experiences />} />} />
             <Route path="/post-experience" element={<ProtectedRoute element={<PostExperience />} />} />
+            <Route path="/history" element={<ProtectedRoute element={<History />} />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

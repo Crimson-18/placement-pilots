@@ -1,171 +1,139 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { motion } from "framer-motion";
-import { Star, MessageSquare, Clock, TrendingUp, Flame, Filter, Heart, Repeat, Share2, MoreHorizontal } from "lucide-react";
+import { Star, MessageSquare, Clock, TrendingUp, Flame, Filter, Heart, Repeat, Share2, MoreHorizontal, Loader, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { getAllExperiences, deleteExperiencePost, toggleLike, checkIfUserLiked } from "@/lib/experienceService";
+import { useAuth } from "@/context/AuthContext";
 
 type SortType = "hot" | "new" | "top";
 
-const mockPosts = [
-  {
-    id: 1,
-    user: "Aarav Sharma",
-    branch: "CSE",
-    year: 2026,
-    avatar: "AS",
-    company: "Google",
-    role: "SDE Intern",
-    difficulty: "Hard",
-    rating: 4.5,
-    date: "2 hours ago",
-    rounds: ["Online Assessment", "Technical Round 1 (DSA)", "Technical Round 2 (System Design)", "HR Round"],
-    tips: "Focus on graph problems and dynamic programming. Practice system design basics even for intern roles. The interviewers were friendly but expected optimal solutions.",
-    upvotes: 142,
-    comments: 23,
-    tags: ["DSA", "System Design", "Graphs"],
-  },
-  {
-    id: 2,
-    user: "Priya Verma",
-    branch: "ECE",
-    year: 2026,
-    avatar: "PV",
-    company: "Microsoft",
-    role: "SDE 1",
-    difficulty: "Medium",
-    rating: 4.2,
-    date: "5 hours ago",
-    rounds: ["Online Assessment", "Technical Round 1", "Technical Round 2", "Technical Round 3", "HR"],
-    tips: "They focus a lot on OOP concepts and real-world scenarios. Be ready for behavioral questions. Practice medium-level LeetCode problems consistently.",
-    upvotes: 98,
-    comments: 15,
-    tags: ["OOP", "Behavioral", "LeetCode"],
-  },
-  {
-    id: 3,
-    user: "Rahul Kumar",
-    branch: "CSE",
-    year: 2025,
-    avatar: "RK",
-    company: "Amazon",
-    role: "SDE Intern",
-    difficulty: "Medium",
-    rating: 3.8,
-    date: "1 day ago",
-    rounds: ["Online Assessment", "Technical Round 1", "Bar Raiser Round"],
-    tips: "Amazon LP questions are very important. Prepare STAR format answers. The bar raiser round was the toughest — they really dig deep into your projects.",
-    upvotes: 76,
-    comments: 31,
-    tags: ["Leadership Principles", "STAR", "Projects"],
-  },
-  {
-    id: 4,
-    user: "Sneha Patel",
-    branch: "IT",
-    year: 2026,
-    avatar: "SP",
-    company: "Flipkart",
-    role: "SDE Intern",
-    difficulty: "Medium",
-    rating: 4.0,
-    date: "1 day ago",
-    rounds: ["Online Assessment", "Machine Coding Round", "Technical Interview", "HR"],
-    tips: "Machine coding round is unique to Flipkart. Practice building small apps in 90 minutes. They value clean code and good abstractions over just working code.",
-    upvotes: 63,
-    comments: 12,
-    tags: ["Machine Coding", "Clean Code", "React"],
-  },
-  {
-    id: 5,
-    user: "Vikram Singh",
-    branch: "CSE",
-    year: 2025,
-    avatar: "VS",
-    company: "Goldman Sachs",
-    role: "Analyst",
-    difficulty: "Hard",
-    rating: 3.5,
-    date: "2 days ago",
-    rounds: ["Aptitude Test", "Technical Round 1", "Technical Round 2", "HR"],
-    tips: "Strong focus on core CS fundamentals — OS, DBMS, and Networking. The aptitude section is tricky, practice quantitative reasoning. Don't skip puzzles prep.",
-    upvotes: 55,
-    comments: 18,
-    tags: ["Core CS", "Aptitude", "DBMS"],
-  },
-  {
-    id: 6,
-    user: "Ananya Reddy",
-    branch: "CSE",
-    year: 2026,
-    avatar: "AR",
-    company: "Adobe",
-    role: "Member of Technical Staff",
-    difficulty: "Hard",
-    rating: 4.7,
-    date: "3 days ago",
-    rounds: ["Online Test", "Technical Round 1", "Technical Round 2", "Hiring Manager Round"],
-    tips: "Adobe loves candidates who can think out loud. Explain your thought process clearly. They asked me to design a mini LRU cache and then extend it. Very design-heavy.",
-    upvotes: 121,
-    comments: 27,
-    tags: ["System Design", "LRU Cache", "Think Aloud"],
-  },
-  {
-    id: 7,
-    user: "Kunal Mehta",
-    branch: "EE",
-    year: 2025,
-    avatar: "KM",
-    company: "Uber",
-    role: "SDE Intern",
-    difficulty: "Medium",
-    rating: 4.1,
-    date: "4 days ago",
-    rounds: ["Online Assessment", "Phone Screen", "Onsite (2 rounds)"],
-    tips: "Uber's OA was straightforward but the onsite rounds were intense. They focus heavily on problem-solving speed and communication. Mock interviews helped me a lot.",
-    upvotes: 44,
-    comments: 9,
-    tags: ["Speed", "Communication", "Mock Interviews"],
-  },
-  {
-    id: 8,
-    user: "Diya Nair",
-    branch: "CSE",
-    year: 2026,
-    avatar: "DN",
-    company: "Intuit",
-    role: "SDE Intern",
-    difficulty: "Easy",
-    rating: 4.3,
-    date: "5 days ago",
-    rounds: ["Online Assessment", "Technical Interview", "Cultural Fit Round"],
-    tips: "Intuit is very culture-driven. They want to know how you collaborate and handle ambiguity. Technical questions were medium level — focus on arrays and strings.",
-    upvotes: 37,
-    comments: 6,
-    tags: ["Culture Fit", "Arrays", "Collaboration"],
-  },
-];
+interface Experience {
+  id: string;
+  user_id: string;
+  company: string;
+  role: string;
+  difficulty: string;
+  rounds: string[];
+  tips: string;
+  preparation_strategy: string;
+  confidence_level: number | null;
+  likes?: number;
+  created_at: string;
+  verified: boolean;
+}
 
 const Home = () => {
+  const { user } = useAuth();
   const [sort, setSort] = useState<SortType>("hot");
-  const [likes, setLikes] = useState<Record<number, number>>(() =>
-    Object.fromEntries(mockPosts.map((p) => [p.id, p.upvotes]))
-  );
-  const [liked, setLiked] = useState<Record<number, boolean>>({});
+  const [experiences, setExperiences] = useState<Experience[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [likes, setLikes] = useState<Record<string, number>>({});
+  const [liked, setLiked] = useState<Record<string, boolean>>({});
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [likingId, setLikingId] = useState<string | null>(null);
 
-  const handleLike = (id: number) => {
-    setLiked((prev) => {
-      const isLiked = !!prev[id];
-      const next = { ...prev, [id]: !isLiked };
-      setLikes((l) => ({ ...l, [id]: l[id] + (isLiked ? -1 : 1) }));
-      return next;
-    });
+  useEffect(() => {
+    const loadExperiences = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getAllExperiences();
+        setExperiences(data);
+        // Initialize likes from database
+        const initialLikes: Record<string, number> = {};
+        data.forEach((exp) => {
+          initialLikes[exp.id] = exp.likes || 0;
+        });
+        setLikes(initialLikes);
+
+        // Check which posts current user has liked
+        if (user?.id) {
+          const initialLiked: Record<string, boolean> = {};
+          for (const exp of data) {
+            const hasLiked = await checkIfUserLiked(exp.id, user.id);
+            initialLiked[exp.id] = hasLiked;
+          }
+          setLiked(initialLiked);
+        }
+      } catch (err) {
+        console.error("Error loading experiences:", err);
+        setError("Failed to load experiences. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadExperiences();
+  }, [user?.id]);
+
+  const handleLike = async (id: string) => {
+    if (!user?.id) {
+      alert("Please log in to like posts");
+      return;
+    }
+
+    try {
+      setLikingId(id);
+      const isCurrentlyLiked = !!liked[id];
+      
+      // Update UI optimistically
+      setLiked((prev) => ({
+        ...prev,
+        [id]: !isCurrentlyLiked,
+      }));
+      setLikes((l) => ({
+        ...l,
+        [id]: l[id] + (isCurrentlyLiked ? -1 : 1),
+      }));
+
+      // Toggle like in database
+      await toggleLike(id, user.id);
+    } catch (err) {
+      // Revert the UI change if database update fails
+      console.error("Error toggling like:", err);
+      setLiked((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      alert("Failed to update like. Please try again.");
+    } finally {
+      setLikingId(null);
+    }
   };
 
-  const sortedPosts = [...mockPosts].sort((a, b) => {
-    if (sort === "new") return 0;
-    if (sort === "top") return (likes[b.id] ?? 0) - (likes[a.id] ?? 0);
-    return (likes[b.id] ?? 0) + b.comments * 2 - ((likes[a.id] ?? 0) + a.comments * 2);
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this post? It will be archived but cannot be recovered.")) {
+      return;
+    }
+
+    try {
+      setDeletingId(id);
+      await deleteExperiencePost(id);
+      // Remove from local state
+      setExperiences((prev) => prev.filter((exp) => exp.id !== id));
+      // Show success message
+      alert("Post deleted successfully!");
+    } catch (err) {
+      console.error("Error deleting post:", err);
+      alert("Failed to delete post. Please try again.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const sortedExperiences = [...experiences].sort((a, b) => {
+    if (sort === "new") {
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    }
+    if (sort === "top") {
+      return (likes[b.id] ?? 0) - (likes[a.id] ?? 0);
+    }
+    // Hot: combination of recent and likes
+    return (likes[b.id] ?? 0) - (likes[a.id] ?? 0);
   });
 
   return (
@@ -213,83 +181,121 @@ const Home = () => {
 
             {/* Posts */}
             <div className="space-y-3">
-              {sortedPosts.map((post, i) => (
-                <motion.div
-                  key={post.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  className="glass-card flex"
-                >
-                  {/* Left: avatar + votes (compact, Twitter-like) */}
-                  <div className="flex items-start px-3 py-3 min-w-[64px]">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="text-sm font-semibold bg-primary/10 text-primary">
-                        {post.avatar}
-                      </AvatarFallback>
-                    </Avatar>
-                  </div>
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Loader className="h-8 w-8 text-primary animate-spin mb-3" />
+                  <p className="text-muted-foreground">Loading experiences...</p>
+                </div>
+              ) : error ? (
+                <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+                  <p className="text-destructive">{error}</p>
+                </div>
+              ) : sortedExperiences.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <MessageSquare className="h-12 w-12 text-muted-foreground mb-3 opacity-50" />
+                  <p className="text-muted-foreground">No experiences yet. Be the first to share!</p>
+                </div>
+              ) : (
+                sortedExperiences.map((exp, i) => (
+                  <motion.div
+                    key={exp.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                    className="glass-card flex"
+                  >
+                    {/* Left: avatar + votes (compact, Twitter-like) */}
+                    <div className="flex items-start px-3 py-3 min-w-[64px]">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback className="text-sm font-semibold bg-primary/10 text-primary">
+                          {exp.company.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
 
-                  {/* Main content */}
-                  <div className="flex-1 p-3">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm text-foreground">{post.user}</span>
-                          <span className="text-xs text-muted-foreground">· {post.branch} '{post.year.toString().slice(-2)}</span>
-                          <span className="text-xs text-muted-foreground">· {post.date}</span>
-                          <span className={`ml-2 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                            post.difficulty === "Hard"
-                              ? "bg-destructive/10 text-destructive"
-                              : post.difficulty === "Easy"
-                              ? "bg-emerald-500/10 text-emerald-400"
-                              : "bg-amber-500/10 text-amber-400"
-                          }`}>{post.difficulty}</span>
-                        </div>
-
-                        <div className="mt-2">
-                          <div className="font-display text-base font-semibold text-foreground">{post.company} — {post.role}</div>
-                          <p className="text-sm text-muted-foreground mt-2 mb-2 leading-relaxed">{post.tips}</p>
-
-                          <div className="flex flex-wrap gap-2 mb-2">
-                            {post.rounds.map((r, idx) => (
-                              <span key={idx} className="text-[11px] px-2 py-1 rounded-full bg-secondary text-muted-foreground">{r}</span>
-                            ))}
+                    {/* Main content */}
+                    <div className="flex-1 p-3">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm text-foreground">{exp.company}</span>
+                            {exp.verified && <span className="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-medium">✓ Verified</span>}
+                            <span className={`ml-2 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                              exp.difficulty === "Hard"
+                                ? "bg-destructive/10 text-destructive"
+                                : exp.difficulty === "Easy"
+                                ? "bg-emerald-500/10 text-emerald-400"
+                                : "bg-amber-500/10 text-amber-400"
+                            }`}>{exp.difficulty}</span>
                           </div>
 
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <div className="flex items-center gap-1 hover:text-foreground transition-colors">
-                                <MessageSquare className="h-4 w-4" />
-                                <span className="text-xs">{post.comments}</span>
-                              </div>
-                              <div className="flex items-center gap-1 hover:text-foreground transition-colors">
-                                <Repeat className="h-4 w-4" />
-                                <span className="text-xs">0</span>
-                              </div>
-                              <button onClick={() => handleLike(post.id)} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                                <Heart className={`h-4 w-4 ${liked[post.id] ? "text-primary fill-current" : ""}`} />
-                                <span className="text-xs">{likes[post.id]}</span>
-                              </button>
-                              <div className="flex items-center gap-1 hover:text-foreground transition-colors">
-                                <Share2 className="h-4 w-4" />
-                              </div>
+                          <div className="mt-2">
+                            <div className="font-display text-base font-semibold text-foreground">{exp.company} — {exp.role}</div>
+                            <p className="text-sm text-muted-foreground mt-2 mb-2 leading-relaxed">{exp.tips}</p>
+
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              {exp.rounds.map((r, idx) => (
+                                <span key={idx} className="text-[11px] px-2 py-1 rounded-full bg-secondary text-muted-foreground">{r}</span>
+                              ))}
                             </div>
 
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center gap-1">
-                                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                                <span className="text-xs font-medium text-foreground">{post.rating}</span>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-1 hover:text-foreground transition-colors">
+                                  <MessageSquare className="h-4 w-4" />
+                                  <span className="text-xs">0</span>
+                                </div>
+                                <div className="flex items-center gap-1 hover:text-foreground transition-colors">
+                                  <Repeat className="h-4 w-4" />
+                                  <span className="text-xs">0</span>
+                                </div>
+                                <button
+                                  onClick={() => handleLike(exp.id)}
+                                  disabled={likingId === exp.id}
+                                  className="flex items-center gap-1 hover:text-foreground transition-colors disabled:opacity-50"
+                                >
+                                  {likingId === exp.id ? (
+                                    <Loader className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Heart className={`h-4 w-4 ${liked[exp.id] ? "text-primary fill-current" : ""}`} />
+                                  )}
+                                  <span className="text-xs">{likes[exp.id]}</span>
+                                </button>
+                                <div className="flex items-center gap-1 hover:text-foreground transition-colors">
+                                  <Share2 className="h-4 w-4" />
+                                </div>
                               </div>
-                              <MoreHorizontal className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1">
+                                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                                  <span className="text-xs font-medium text-foreground">{exp.confidence_level || 0}/5</span>
+                                </div>
+                                {user && user.id === exp.user_id ? (
+                                  <button
+                                    onClick={() => handleDelete(exp.id)}
+                                    disabled={deletingId === exp.id}
+                                    className="flex items-center gap-1 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                                    title="Delete this post"
+                                  >
+                                    {deletingId === exp.id ? (
+                                      <Loader className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4" />
+                                    )}
+                                  </button>
+                                ) : (
+                                  <MoreHorizontal className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))
+              )}
             </div>
           </div>
 

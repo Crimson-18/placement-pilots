@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import logo from "@/assets/logo.png";
@@ -11,43 +11,105 @@ const Register = () => {
     name: "",
     email: "",
     password: "",
+    confirmPassword: "",
     branch: "",
     graduationYear: "",
     cgpa: "",
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
-  const { login } = useAuth();
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [localError, setLocalError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const { signup, isLoading, isAuthenticated, error, clearError } = useAuth();
   const navigate = useNavigate();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/dashboard");
+    }
+  }, [isAuthenticated, navigate]);
+
+  // Update local error when context error changes
+  useEffect(() => {
+    if (error) {
+      setLocalError(error);
+    }
+  }, [error]);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+    setLocalError("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    
+    setLocalError("");
+    setSuccessMessage("");
+    clearError();
+
     try {
       // Validate form
-      if (!form.name || !form.email || !form.password || !form.branch || !form.graduationYear || !form.cgpa) {
-        setError("Please fill in all fields");
+      if (
+        !form.name ||
+        !form.email ||
+        !form.password ||
+        !form.confirmPassword ||
+        !form.branch ||
+        !form.graduationYear ||
+        !form.cgpa
+      ) {
+        setLocalError("Please fill in all fields");
         return;
       }
 
-      if (form.password.length < 8) {
-        setError("Password must be at least 8 characters");
+      if (form.password !== form.confirmPassword) {
+        setLocalError("Passwords do not match");
         return;
       }
 
-      // Call login function to register and log in the user
-      // In a real app, this would call a registration API first
-      await login(form.email, form.password);
-      
-      // Redirect to dashboard on successful registration
-      navigate("/dashboard");
+      if (form.password.length < 6) {
+        setLocalError("Password must be at least 6 characters");
+        return;
+      }
+
+      if (!form.email.endsWith("@nitkkr.ac.in")) {
+        setLocalError("Please use your college email (@nitkkr.ac.in)");
+        return;
+      }
+
+      // Call signup function from AuthContext with all profile data
+      await signup(
+        form.email,
+        form.password,
+        form.name,
+        form.branch,
+        form.graduationYear,
+        form.cgpa
+      );
+
+      setSuccessMessage(
+        "Registration successful! Please check your email to verify your account."
+      );
+
+      // Reset form
+      setForm({
+        name: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        branch: "",
+        graduationYear: "",
+        cgpa: "",
+      });
+
+      // Redirect to verify email page after 2 seconds
+      setTimeout(() => {
+        navigate("/verify-email");
+      }, 2000);
     } catch (err) {
-      setError("Registration failed. Please try again.");
       console.error("Registration error:", err);
     }
   };
@@ -64,13 +126,20 @@ const Register = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="glass-card p-6 space-y-4">
-          {error && (
+          {localError && (
             <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
-              {error}
+              {localError}
+            </div>
+          )}
+          {successMessage && (
+            <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-3 text-sm text-green-600">
+              {successMessage}
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Full Name</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Full Name
+            </label>
             <input
               type="text"
               name="name"
@@ -79,10 +148,13 @@ const Register = () => {
               placeholder="John Doe"
               className="w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               required
+              disabled={isLoading}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">College Email</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              College Email (NITKKR)
+            </label>
             <input
               type="email"
               name="email"
@@ -91,48 +163,94 @@ const Register = () => {
               placeholder="you@nitkkr.ac.in"
               className="w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               required
+              disabled={isLoading}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Password</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Password
+            </label>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
                 name="password"
                 value={form.password}
                 onChange={handleChange}
-                placeholder="Min 8 characters"
+                placeholder="At least 6 characters"
                 className="w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary pr-10"
                 required
-                minLength={8}
+                minLength={6}
+                disabled={isLoading}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                disabled={isLoading}
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Confirm Password
+            </label>
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                name="confirmPassword"
+                value={form.confirmPassword}
+                onChange={handleChange}
+                placeholder="Confirm password"
+                className="w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary pr-10"
+                required
+                minLength={6}
+                disabled={isLoading}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                disabled={isLoading}
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Branch</label>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Branch
+              </label>
               <select
                 name="branch"
                 value={form.branch}
                 onChange={handleChange}
                 className="w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 required
+                disabled={isLoading}
               >
                 <option value="">Select</option>
                 {branches.map((b) => (
-                  <option key={b} value={b}>{b}</option>
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Grad Year</label>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Grad Year
+              </label>
               <input
                 type="number"
                 name="graduationYear"
@@ -141,11 +259,14 @@ const Register = () => {
                 placeholder="2026"
                 className="w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 required
+                disabled={isLoading}
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">CGPA</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              CGPA
+            </label>
             <input
               type="number"
               name="cgpa"
@@ -157,19 +278,24 @@ const Register = () => {
               max="10"
               className="w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               required
+              disabled={isLoading}
             />
           </div>
           <button
             type="submit"
-            className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+            disabled={isLoading}
+            className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Create Account
+            {isLoading ? "Creating account..." : "Create Account"}
           </button>
         </form>
 
         <p className="text-center text-sm text-muted-foreground mt-4">
           Already have an account?{" "}
-          <Link to="/login" className="text-primary hover:underline font-medium">
+          <Link
+            to="/login"
+            className="text-primary hover:underline font-medium"
+          >
             Sign in
           </Link>
         </p>
