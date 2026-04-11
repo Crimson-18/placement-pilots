@@ -12,7 +12,7 @@ import {
   getConversationBetweenUsers,
   updateConversationLastMessage,
 } from "@/lib/conversationService";
-import { getMessages, sendMessage, markMessagesAsRead } from "@/lib/messageService";
+import { getMessages, sendMessage, markMessagesAsRead, subscribeToMessages } from "@/lib/messageService";
 import { MessageCircle, Send, X, Check } from "lucide-react";
 import { toast } from "sonner";
 
@@ -64,8 +64,7 @@ const PrepTalk = () => {
   const [processingRequest, setProcessingRequest] = useState<string>("");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messageRefreshInterval = useRef<NodeJS.Timeout | null>(null);
-  const lastMessageTimestampRef = useRef<string>("");
+  const unsubscribeRef = useRef<(() => void) | null>(null);
   const optimisticMessagesRef = useRef<Message[]>([]);
 
   // Redirect if not authenticated
@@ -136,16 +135,18 @@ const PrepTalk = () => {
     return () => clearInterval(interval);
   }, [user?.id]);
 
-  // Fetch messages for selected conversation
+  // Fetch messages for selected conversation with real-time updates
   useEffect(() => {
     if (!selectedConversation?.id) {
-      if (messageRefreshInterval.current) {
-        clearInterval(messageRefreshInterval.current);
+      // Cleanup subscription when no conversation is selected
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
       }
       return;
     }
 
-    // Initial fetch - full history
+    // Initial fetch - full message history
     const initialFetch = async () => {
       try {
         setLoadingMessages(true);
@@ -155,11 +156,6 @@ const PrepTalk = () => {
         // Mark messages as read
         await markMessagesAsRead(selectedConversation.id, user!.id);
 
-        // Set last message timestamp for incremental updates
-        if (msgs && msgs.length > 0) {
-          lastMessageTimestampRef.current = msgs[msgs.length - 1].created_at;
-        }
-
         setLoadingMessages(false);
         scrollToBottom();
       } catch (err) {
@@ -168,41 +164,44 @@ const PrepTalk = () => {
       }
     };
 
+    // Cleanup previous subscription if exists
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+
+    // Fetch initial messages
     initialFetch();
 
-    // Polling for new messages only
-    const fetchNewMessages = async () => {
-      try {
-        const msgs = await getMessages(selectedConversation.id);
-        
-        // Only update if there are new messages
-        if (msgs && msgs.length > 0) {
-          const lastTimestamp = lastMessageTimestampRef.current;
-          const newMessages = msgs.filter(
-            (msg) => !lastTimestamp || new Date(msg.created_at) > new Date(lastTimestamp)
-          );
-
-          if (newMessages.length > 0) {
-            setMessages(msgs as Message[]);
-            lastMessageTimestampRef.current = msgs[msgs.length - 1].created_at;
-
-            // Mark new messages as read
-            await markMessagesAsRead(selectedConversation.id, user!.id);
-
-            scrollToBottom();
+    // Setup real-time subscription for new messages only
+    const unsubscribe = subscribeToMessages(
+      selectedConversation.id,
+      (newMessage: Message) => {
+        // Add new message to state (avoid duplicates by checking if message already exists)
+        setMessages((prev) => {
+          // Check if message already exists (by ID)
+          if (prev.some((msg) => msg.id === newMessage.id)) {
+            return prev;
           }
-        }
-      } catch (err) {
-        console.error("Error polling messages:", err);
+          return [...prev, newMessage];
+        });
+
+        // Mark new messages as read immediately
+        markMessagesAsRead(selectedConversation.id, user!.id).catch((err) =>
+          console.error("Error marking messages as read:", err)
+        );
+
+        scrollToBottom();
       }
-    };
+    );
 
-    // Fast polling every 1 second for new messages
-    messageRefreshInterval.current = setInterval(fetchNewMessages, 1000);
+    unsubscribeRef.current = unsubscribe;
 
+    // Cleanup on unmount or conversation change
     return () => {
-      if (messageRefreshInterval.current) {
-        clearInterval(messageRefreshInterval.current);
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
       }
     };
   }, [selectedConversation?.id, user?.id]);
@@ -286,12 +285,10 @@ const PrepTalk = () => {
     scrollToBottom();
 
     // Send to server in background (don't wait, don't block UI)
-    // Fire and forget - polling will fetch the real message
     sendMessage(selectedConversation.id, user!.id, messageText)
       .then(async () => {
         await updateConversationLastMessage(selectedConversation.id);
-        lastMessageTimestampRef.current = new Date().toISOString();
-        // Don't need to do anything else - polling will pick it up
+        // Message will be received via real-time subscription
       })
       .catch((err) => {
         console.error("Error sending message:", err);
