@@ -15,6 +15,7 @@ import EligibilityChecker from "./pages/EligibilityChecker";
 import Experiences from "./pages/Experiences";
 import PostExperience from "./pages/PostExperience";
 import History from "./pages/History";
+import PrepTalk from "./pages/PrepTalk";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/eligibility" element={<ProtectedRoute element={<EligibilityChecker />} />} />
             <Route path="/experiences" element={<ProtectedRoute element={<Experiences />} />} />
             <Route path="/post-experience" element={<ProtectedRoute element={<PostExperience />} />} />
+            <Route path="/preptalk" element={<ProtectedRoute element={<PrepTalk />} />} />
             <Route path="/history" element={<ProtectedRoute element={<History />} />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -1,0 +1,136 @@
+import { supabase } from "./supabase";
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  read_at: string | null;
+  created_at: string;
+  sender?: any;
+}
+
+/**
+ * Send a message in a conversation
+ */
+export async function sendMessage(
+  conversationId: string,
+  senderId: string,
+  content: string
+) {
+  try {
+    if (!content.trim()) {
+      throw new Error("Message content cannot be empty");
+    }
+
+    const { data, error } = await supabase
+      .from("messages")
+      .insert([
+        {
+          conversation_id: conversationId,
+          sender_id: senderId,
+          content: content.trim(),
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Fetch sender info separately
+    const { data: sender } = await supabase
+      .from("users")
+      .select("id, name, email")
+      .eq("id", senderId)
+      .maybeSingle();
+
+    return { ...data, sender } as Message;
+  } catch (err) {
+    console.error("Error sending message:", err);
+    throw err;
+  }
+}
+
+/**
+ * Get all messages in a conversation
+ */
+export async function getMessages(conversationId: string, limit = 50) {
+  try {
+    const { data, error } = await supabase
+      .from("messages")
+      .select()
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true })
+      .limit(limit);
+
+    if (error) throw error;
+
+    const messages = (data as any[]) || [];
+
+    // Fetch sender info for each message
+    const enriched = await Promise.all(
+      messages.map(async (msg) => {
+        const { data: sender } = await supabase
+          .from("users")
+          .select("id, name, email")
+          .eq("id", msg.sender_id)
+          .maybeSingle();
+
+        return {
+          ...msg,
+          sender,
+        };
+      })
+    );
+
+    return (enriched as Message[]) || [];
+  } catch (err) {
+    console.error("Error fetching messages:", err);
+    throw err;
+  }
+}
+
+/**
+ * Get unread message count for a conversation
+ */
+export async function getUnreadCount(conversationId: string, userId: string) {
+  try {
+    const { count, error } = await supabase
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("conversation_id", conversationId)
+      .neq("sender_id", userId)
+      .is("read_at", null);
+
+    if (error) throw error;
+
+    return count || 0;
+  } catch (err) {
+    console.error("Error fetching unread count:", err);
+    return 0;
+  }
+}
+
+/**
+ * Mark messages as read
+ */
+export async function markMessagesAsRead(
+  conversationId: string,
+  userId: string
+) {
+  try {
+    const { error } = await supabase
+      .from("messages")
+      .update({ read_at: new Date().toISOString() })
+      .eq("conversation_id", conversationId)
+      .neq("sender_id", userId)
+      .is("read_at", null);
+
+    if (error) throw error;
+
+    return true;
+  } catch (err) {
+    console.error("Error marking messages as read:", err);
+    throw err;
+  }
+}

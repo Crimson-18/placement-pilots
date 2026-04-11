@@ -1,15 +1,20 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { getAllExperiencesWithUsers, toggleLike, checkIfUserLiked } from "@/lib/experienceService";
-import { Star, Heart } from "lucide-react";
+import { sendChatRequest, checkChatRequestExists } from "@/lib/chatRequestService";
+import { Star, Heart, MessageCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const Experiences = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [experiences, setExperiences] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [liking, setLiking] = useState<Set<string>>(new Set());
+  const [connecting, setConnecting] = useState<Set<string>>(new Set());
+  const [chatRequests, setChatRequests] = useState<Map<string, any>>(new Map());
 
   useEffect(() => {
     const fetchExperiences = async () => {
@@ -82,6 +87,45 @@ const Experiences = () => {
     }
   };
 
+  const handleConnect = async (experienceId: string, receiverId: string, receiverName: string) => {
+    if (!user?.id) {
+      alert("Please log in to connect with users");
+      return;
+    }
+
+    if (user.id === receiverId) {
+      alert("You cannot connect with yourself");
+      return;
+    }
+
+    try {
+      setConnecting(prev => new Set([...prev, experienceId]));
+
+      // Check if request already exists
+      const existingRequest = await checkChatRequestExists(user.id, receiverId);
+      if (existingRequest && existingRequest.status !== 'rejected') {
+        alert("You have already sent a connect request to this user");
+        return;
+      }
+
+      // Send chat request
+      await sendChatRequest(user.id, receiverId, experienceId);
+      alert(`Connect request sent to ${receiverName}! Go to PrepTalk to view your requests.`);
+      
+      // Redirect to PrepTalk
+      navigate("/preptalk");
+    } catch (err: any) {
+      console.error("Error sending connect request:", err);
+      alert(err?.message || "Failed to send connect request");
+    } finally {
+      setConnecting(prev => {
+        const updated = new Set(prev);
+        updated.delete(experienceId);
+        return updated;
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -109,6 +153,8 @@ const Experiences = () => {
           <div className="space-y-4">
             {experiences.map((exp) => {
               const userInfo = exp.users || {};
+              const displayName = exp.user_name || userInfo.name || "Anonymous";
+              const displayBranch = userInfo.branch || "N/A";
               const isLiked = likedPosts.has(exp.id);
               const isLiking = liking.has(exp.id);
               
@@ -120,7 +166,7 @@ const Experiences = () => {
                         {exp.company} — {exp.role}
                       </h3>
                       <p className="text-xs text-muted-foreground">
-                        by {userInfo.name || "Anonymous"} ({userInfo.branch || "N/A"}) ·{" "}
+                        by {displayName} ({displayBranch}) ·{" "}
                         {new Date(exp.created_at).toLocaleDateString()}
                       </p>
                     </div>
@@ -216,7 +262,7 @@ const Experiences = () => {
                     </div>
                   </div>
 
-                  {/* Like Button */}
+                  {/* Like and Connect Buttons */}
                   <div className="mt-4 flex items-center gap-2">
                     <button
                       onClick={() => handleToggleLike(exp.id)}
@@ -233,6 +279,22 @@ const Experiences = () => {
                       />
                       <span className="text-xs font-medium">
                         {exp.likes || 0}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => handleConnect(exp.id, exp.user_id, exp.user_name || userInfo.name || "User")}
+                      disabled={connecting.has(exp.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-all duration-200 ${
+                        connecting.has(exp.id)
+                          ? "opacity-50 cursor-not-allowed bg-secondary text-muted-foreground"
+                          : "bg-primary/20 text-primary hover:bg-primary/30"
+                      }`}
+                      title="Connect with this user for chat"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      <span className="text-xs font-medium">
+                        {connecting.has(exp.id) ? "Connecting..." : "Connect"}
                       </span>
                     </button>
                   </div>

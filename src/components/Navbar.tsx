@@ -1,13 +1,14 @@
 import { Link, useLocation } from "react-router-dom";
 import logo from "@/assets/logo.png";
 import { useAuth } from "@/context/AuthContext";
-import { LogOut, Clock } from "lucide-react";
+import { LogOut, Clock, MessageCircle } from "lucide-react";
 
 const navLinks = [
   { label: "Feed", path: "/home" },
   { label: "Companies", path: "/companies" },
   { label: "Eligibility", path: "/eligibility" },
   { label: "Experiences", path: "/experiences" },
+  { label: "PrepTalk", path: "/preptalk", icon: MessageCircle },
   { label: "History", path: "/history", icon: Clock },
 ];
 

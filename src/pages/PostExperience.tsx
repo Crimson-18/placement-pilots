@@ -57,8 +57,14 @@ const PostExperience = () => {
         return;
       }
 
+      if (!user?.name || user.name.trim() === "") {
+        setError("Your profile name is missing. Please update your profile before posting an experience");
+        setIsSubmitting(false);
+        return;
+      }
+
       // Create experience
-      const experience = await createExperience(user.id, {
+      const experience = await createExperience(user.id, user.name, {
         company: form.company,
         role: form.role,
         difficulty: form.difficulty as "Easy" | "Medium" | "Hard",

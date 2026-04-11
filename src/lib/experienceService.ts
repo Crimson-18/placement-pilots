@@ -3,6 +3,7 @@ import { supabase } from "./supabase";
 export interface Experience {
   id: string;
   user_id: string;
+  user_name?: string;
   company: string;
   role: string;
   difficulty: "Easy" | "Medium" | "Hard";
@@ -20,6 +21,7 @@ export interface Experience {
 
 export async function createExperience(
   userId: string,
+  userName: string,
   data: {
     company: string;
     role: string;
@@ -33,13 +35,18 @@ export async function createExperience(
   }
 ) {
   try {
-    console.log("Creating experience with data:", { userId, ...data });
+    if (!userName || userName.trim() === "") {
+      throw new Error("User name is required to post an experience");
+    }
+
+    console.log("Creating experience with data:", { userId, userName, ...data });
     
     const { data: experience, error } = await supabase
       .from("experiences")
       .insert([
         {
           user_id: userId,
+          user_name: userName.trim(),
           company: data.company,
           role: data.role,
           difficulty: data.difficulty,
@@ -57,14 +64,19 @@ export async function createExperience(
 
     if (error) {
       console.error("Supabase insert error:", error);
-      throw error;
+      throw new Error(`Failed to create experience: ${error.message}`);
+    }
+    
+    if (!experience) {
+      throw new Error("Experience was created but data was not returned");
     }
     
     console.log("Experience created successfully:", experience);
     return experience;
   } catch (err) {
-    console.error("Error creating experience:", err);
-    throw err;
+    const errorMessage = err instanceof Error ? err.message : "Failed to create experience";
+    console.error("Error creating experience:", errorMessage);
+    throw new Error(errorMessage);
   }
 }
 
@@ -145,8 +157,13 @@ export async function deleteExperiencePost(experienceId: string) {
       .eq("id", experienceId)
       .single();
 
-    if (fetchError) throw fetchError;
-    if (!experience) throw new Error("Experience not found");
+    if (fetchError) {
+      throw new Error(`Failed to fetch experience: ${fetchError.message}`);
+    }
+    
+    if (!experience) {
+      throw new Error("Experience not found");
+    }
 
     // Archive to deleted_posts table
     const { error: archiveError } = await supabase
@@ -155,6 +172,7 @@ export async function deleteExperiencePost(experienceId: string) {
         {
           original_experience_id: experienceId,
           user_id: experience.user_id,
+          user_name: experience.user_name || null,
           company: experience.company,
           role: experience.role,
           difficulty: experience.difficulty,
@@ -167,7 +185,9 @@ export async function deleteExperiencePost(experienceId: string) {
         },
       ]);
 
-    if (archiveError) throw archiveError;
+    if (archiveError) {
+      throw new Error(`Failed to archive experience: ${archiveError.message}`);
+    }
 
     // Delete from experiences table
     const { error: deleteError } = await supabase
@@ -175,13 +195,16 @@ export async function deleteExperiencePost(experienceId: string) {
       .delete()
       .eq("id", experienceId);
 
-    if (deleteError) throw deleteError;
+    if (deleteError) {
+      throw new Error(`Failed to delete experience: ${deleteError.message}`);
+    }
 
     console.log("Experience deleted and archived successfully");
     return true;
   } catch (err) {
-    console.error("Error deleting experience:", err);
-    throw err;
+    const errorMessage = err instanceof Error ? err.message : "Failed to delete experience";
+    console.error("Error deleting experience:", errorMessage);
+    throw new Error(errorMessage);
   }
 }
 
