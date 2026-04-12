@@ -28,7 +28,7 @@ const features = [
 
 const stats = [
   { value: "10+", label: "Experiences" },
-  { value: "1+", label: "Companies" },
+  { value: "10+", label: "Companies" },
   { value: "10+", label: "Students" },
   { value: "95%", label: "Accuracy" },
 ];

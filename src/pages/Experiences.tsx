@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { getAllExperiencesWithUsers, toggleLike, checkIfUserLiked } from "@/lib/experienceService";
 import { sendChatRequest, checkChatRequestExists } from "@/lib/chatRequestService";
-import { Star, Heart, MessageCircle } from "lucide-react";
+import { Star, Heart, MessageCircle, Loader } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const Experiences = () => {
@@ -129,22 +129,26 @@ const Experiences = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="container mx-auto px-4 pt-24 pb-12 max-w-3xl">
-        <div className="mb-8">
-          <h1 className="font-display text-3xl font-bold text-foreground">
+      <main className="container mx-auto px-3 sm:px-4 pt-20 sm:pt-24 pb-12 max-w-3xl">
+        {/* Header */}
+        <div className="mb-8 sm:mb-10 animate-in fade-in slide-in-from-top duration-500">
+          <h1 className="font-display text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-300 via-purple-300 to-pink-300 bg-clip-text text-transparent">
             Interview Experiences
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
+          <p className="text-muted-foreground text-sm sm:text-base mt-2">
             Learn from real placement interviews
           </p>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"></div>
+          <div className="flex items-center justify-center py-12 animate-in fade-in duration-500">
+            <div className="relative w-12 h-12">
+              <div className="absolute inset-0 border-2 border-transparent border-t-blue-400 border-r-purple-400 rounded-full animate-spin" />
+              <Loader className="absolute inset-0 m-auto h-8 w-8 text-blue-300 animate-spin" />
+            </div>
           </div>
         ) : experiences.length === 0 ? (
-          <div className="glass-card p-12 text-center">
+          <div className="glass-card p-8 sm:p-12 text-center animate-in fade-in duration-500">
             <p className="text-muted-foreground">
               No interview experiences shared yet. Be the first to share!
             </p>
