@@ -2,8 +2,8 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/context/AuthContext";
-import { User, FileText, Target, Settings, ArrowRight, History } from "lucide-react";
-import { getUserExperiences, Experience } from "@/lib/experienceService";
+import { User, FileText, Target, Settings, ArrowRight, History, Trash2, AlertCircle } from "lucide-react";
+import { getUserExperiences, Experience, deleteExperiencePost } from "@/lib/experienceService";
 import { getUserEligibilityHistory, EligibilityCheckResult } from "@/lib/historyService";
 
 const Dashboard = () => {
@@ -12,6 +12,9 @@ const Dashboard = () => {
   const [eligibilityHistory, setEligibilityHistory] = useState<EligibilityCheckResult[]>([]);
   const [loadingExperiences, setLoadingExperiences] = useState(true);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -31,6 +34,25 @@ const Dashboard = () => {
 
     fetchData();
   }, [user?.id]);
+
+  const handleDeleteExperience = async (experienceId: string, companyName: string) => {
+    try {
+      setIsDeleting(true);
+      setDeleteError(null);
+
+      await deleteExperiencePost(experienceId);
+
+      // Remove from local state
+      setUserExperiences(prev => prev.filter(exp => exp.id !== experienceId));
+      setDeleteConfirm(null);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to delete experience";
+      setDeleteError(errorMsg);
+      console.error("Delete error:", err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -127,6 +149,12 @@ const Dashboard = () => {
               </div>
             ) : (
               <div className="space-y-3">
+                {deleteError && (
+                  <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    {deleteError}
+                  </div>
+                )}
                 {userExperiences.slice(0, 5).map((exp) => (
                   <div
                     key={exp.id}
@@ -160,6 +188,32 @@ const Dashboard = () => {
                       </span>
                       {!exp.verified && (
                         <span className="text-xs text-yellow-600 italic">pending</span>
+                      )}
+                      {deleteConfirm === exp.id ? (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleDeleteExperience(exp.id, exp.company)}
+                            disabled={isDeleting}
+                            className="text-xs font-medium px-2 py-1 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+                          >
+                            {isDeleting ? "Deleting..." : "Confirm"}
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirm(null)}
+                            disabled={isDeleting}
+                            className="text-xs font-medium px-2 py-1 rounded bg-secondary hover:bg-secondary/80 disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setDeleteConfirm(exp.id)}
+                          className="text-xs text-destructive hover:text-destructive/80 transition-colors p-1 rounded hover:bg-destructive/10"
+                          title="Delete this experience"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       )}
                     </div>
                   </div>

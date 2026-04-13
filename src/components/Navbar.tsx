@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 import logo from "@/assets/logo.png";
 import { useAuth } from "@/context/AuthContext";
-import { LogOut, Clock, MessageCircle, Menu, X, Home, Building2, Target, BookOpen } from "lucide-react";
+import { LogOut, MessageCircle, Menu, X, Home, Building2, Target, BookOpen } from "lucide-react";
 
 const navLinks = [
   { label: "Feed", path: "/home", icon: Home },
@@ -10,7 +10,6 @@ const navLinks = [
   { label: "Eligibility", path: "/eligibility", icon: Target },
   { label: "Experiences", path: "/experiences", icon: BookOpen },
   { label: "PrepTalk", path: "/preptalk", icon: MessageCircle },
-  { label: "History", path: "/history", icon: Clock },
 ];
 
 const Navbar = () => {
@@ -63,7 +62,7 @@ const Navbar = () => {
                 </Link>
                 <button
                   onClick={logout}
-                  className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors hidden xs:flex"
+                  className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
                 >
                   <LogOut className="h-4 w-4" />
                   <span className="hidden sm:inline">Logout</span>

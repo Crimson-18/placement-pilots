@@ -178,3 +178,28 @@ export async function getUserActivityHistory(
     return [];
   }
 }
+
+/**
+ * Delete activity history entries by reference ID (e.g., experience_id)
+ * Used when deleting an experience post to remove associated history
+ */
+export async function deleteActivityHistoryByReferenceId(
+  referenceId: string
+): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from("user_activity_history")
+      .delete()
+      .eq("reference_id", referenceId);
+
+    if (error) {
+      console.error("Error deleting activity history:", error);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Failed to delete activity history:", err);
+    return false;
+  }
+}

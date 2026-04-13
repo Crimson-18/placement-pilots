@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { deleteActivityHistoryByReferenceId } from "./historyService";
 
 export interface Experience {
   id: string;
@@ -146,7 +147,7 @@ export async function updateExperience(
 }
 
 /**
- * Delete an experience post - archives it to deleted_posts table and removes from experiences
+ * Delete an experience post - archives it to deleted_posts table, removes from experiences, and removes associated history
  */
 export async function deleteExperiencePost(experienceId: string) {
   try {
@@ -172,7 +173,6 @@ export async function deleteExperiencePost(experienceId: string) {
         {
           original_experience_id: experienceId,
           user_id: experience.user_id,
-          user_name: experience.user_name || null,
           company: experience.company,
           role: experience.role,
           difficulty: experience.difficulty,
@@ -199,7 +199,10 @@ export async function deleteExperiencePost(experienceId: string) {
       throw new Error(`Failed to delete experience: ${deleteError.message}`);
     }
 
-    console.log("Experience deleted and archived successfully");
+    // Delete associated history entries
+    await deleteActivityHistoryByReferenceId(experienceId);
+
+    console.log("Experience deleted, archived, and history cleaned up successfully");
     return true;
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Failed to delete experience";
