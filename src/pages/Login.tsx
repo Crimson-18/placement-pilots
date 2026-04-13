@@ -122,7 +122,7 @@ const Login = () => {
               type="email"
               value={email}
               onChange={handleEmailChange}
-              placeholder="your@email.com"
+              placeholder="your@nitkkr.ac.in"
               className={`w-full rounded-lg border ${emailError ? "border-destructive bg-destructive/5" : "border-border bg-secondary"} px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${emailError ? "focus:ring-destructive" : "focus:ring-primary"}`}
               required
               disabled={isLoading}

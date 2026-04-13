@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { getAllExperiencesWithUsers, toggleLike, checkIfUserLiked } from "@/lib/experienceService";
 import { sendChatRequest, checkChatRequestExists } from "@/lib/chatRequestService";
-import { Star, Heart, MessageCircle, Loader } from "lucide-react";
+import { Star, Heart, MessageCircle, Loader, CheckCircle, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const Experiences = () => {
@@ -129,15 +129,22 @@ const Experiences = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="container mx-auto px-3 sm:px-4 pt-20 sm:pt-24 pb-12 max-w-3xl">
+      <main className="container mx-auto px-3 sm:px-4 pt-20 sm:pt-24 pb-12 max-w-4xl">
         {/* Header */}
-        <div className="mb-8 sm:mb-10 animate-in fade-in slide-in-from-top duration-500">
-          <h1 className="font-display text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-300 via-purple-300 to-pink-300 bg-clip-text text-transparent">
-            Interview Experiences
-          </h1>
-          <p className="text-muted-foreground text-sm sm:text-base mt-2">
-            Learn from real placement interviews
-          </p>
+        <div className="mb-10 sm:mb-12 animate-in fade-in slide-in-from-top duration-500">
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-500/10 flex-shrink-0">
+              <Users className="h-6 w-6 text-purple-400" />
+            </div>
+            <div>
+              <h1 className="font-display text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                Interview Experiences
+              </h1>
+              <p className="text-muted-foreground text-sm sm:text-base mt-2">
+                Learn from real placement interviews and connect with peers who've been through it
+              </p>
+            </div>
+          </div>
         </div>
 
         {loading ? (
@@ -148,13 +155,19 @@ const Experiences = () => {
             </div>
           </div>
         ) : experiences.length === 0 ? (
-          <div className="glass-card p-8 sm:p-12 text-center animate-in fade-in duration-500">
-            <p className="text-muted-foreground">
-              No interview experiences shared yet. Be the first to share!
+          <div className="glass-card p-12 sm:p-16 text-center animate-in fade-in duration-500 rounded-lg border border-primary/10 bg-gradient-to-br from-primary/5 to-background">
+            <div className="p-4 rounded-full bg-primary/10 w-fit mx-auto mb-4">
+              <CheckCircle className="h-12 w-12 text-primary/70" />
+            </div>
+            <p className="text-muted-foreground text-lg">
+              No interview experiences shared yet.
+            </p>
+            <p className="text-muted-foreground text-sm mt-2">
+              Be the first to share your placement journey!
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {experiences.map((exp) => {
               const userInfo = exp.users || {};
               const displayName = exp.user_name || userInfo.name || "Anonymous";
@@ -163,92 +176,113 @@ const Experiences = () => {
               const isLiking = liking.has(exp.id);
               
               return (
-                <div key={exp.id} className="glass-card p-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h3 className="font-display text-lg font-semibold text-foreground">
-                        {exp.company} — {exp.role}
-                      </h3>
-                      <p className="text-xs text-muted-foreground">
-                        by {displayName} ({displayBranch}) ·{" "}
-                        {new Date(exp.created_at).toLocaleDateString()}
-                      </p>
+                <div key={exp.id} className="glass-card p-6 sm:p-7 rounded-lg border border-primary/10 hover:border-primary/30 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 animate-in fade-in slide-in-from-bottom duration-500">
+                  {/* Header Section */}
+                  <div className="mb-5 pb-4 border-b border-border/50">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-display text-lg sm:text-xl font-bold text-foreground mb-1">
+                          {exp.company}
+                        </h3>
+                        <p className="text-sm font-semibold text-muted-foreground mb-3">
+                          {exp.role}
+                        </p>
+                        <p className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                          <span className="inline-block">by <span className="font-medium text-foreground">{displayName}</span></span>
+                          <span>•</span>
+                          <span className="inline-block"><span className="font-medium text-foreground">{displayBranch}</span></span>
+                          <span>•</span>
+                          <span>{new Date(exp.created_at).toLocaleDateString()}</span>
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
+
+                    {/* Badges */}
+                    <div className="flex items-center gap-2 flex-wrap">
                       {exp.verified && (
-                        <span className="text-xs font-medium px-2 py-0.5 rounded bg-green-500/10 text-green-600 flex items-center gap-1">
+                        <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center gap-1 border border-emerald-500/20">
                           ✓ Verified
                         </span>
                       )}
                       <span
-                        className={`text-xs font-medium px-2 py-0.5 rounded ${
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
                           exp.difficulty === "Hard"
-                            ? "bg-destructive/10 text-destructive"
+                            ? "bg-destructive/15 text-destructive border-destructive/20"
                             : exp.difficulty === "Medium"
-                            ? "bg-warning/10 text-warning"
-                            : "bg-success/10 text-success"
+                            ? "bg-amber-500/15 text-amber-400 border-amber-500/20"
+                            : "bg-emerald-500/15 text-emerald-400 border-emerald-500/20"
                         }`}
                       >
-                        {exp.difficulty}
+                        {exp.difficulty} Difficulty
                       </span>
                       {exp.confidence_level && (
-                        <div className="flex items-center gap-0.5 ml-2">
-                          <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-                          <span className="text-xs font-medium text-foreground">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/20">
+                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                          <span className="text-xs font-semibold text-amber-400">
                             {exp.confidence_level}/5
                           </span>
                         </div>
                       )}
                       {!exp.verified && (
-                        <span className="text-xs text-muted-foreground italic">
-                          (pending verification)
+                        <span className="text-xs text-muted-foreground italic px-2 py-1 rounded bg-secondary/50">
+                          Pending verification
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <div className="space-y-3 text-sm">
+                  {/* Content Grid */}
+                  <div className="space-y-4 mb-5">
+                    {/* Tips */}
                     <div>
-                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                        Rounds
+                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-2">
+                        <span className="inline-block w-1 h-1 rounded-full bg-cyan-400"></span>
+                        Key Tips
                       </h4>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(exp.rounds || []).map((round: string, i: number) => (
-                          <span
-                            key={i}
-                            className="rounded bg-secondary px-2.5 py-1 text-xs text-foreground"
-                          >
-                            {round}
-                          </span>
-                        ))}
+                      <p className="text-sm text-foreground/85 leading-relaxed">{exp.tips}</p>
+                    </div>
+
+                    {/* Rounds */}
+                    {(exp.rounds || []).length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2.5 flex items-center gap-2">
+                          <span className="inline-block w-1 h-1 rounded-full bg-purple-400"></span>
+                          Interview Rounds
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {(exp.rounds || []).map((round: string, i: number) => (
+                            <span
+                              key={i}
+                              className="rounded-full bg-gradient-to-r from-purple-500/10 to-purple-500/5 px-3.5 py-1.5 text-xs text-foreground font-medium border border-purple-500/20 hover:border-purple-500/40 transition-colors"
+                            >
+                              {round}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
-                    <div>
-                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                        Tips
-                      </h4>
-                      <p className="text-sm text-foreground/80">{exp.tips}</p>
-                    </div>
-
+                    {/* Strengths & Mistakes Grid */}
                     {(exp.strengths || exp.mistakes) && (
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         {exp.strengths && (
-                          <div>
-                            <h4 className="text-xs font-medium text-success/80 uppercase tracking-wider mb-1">
-                              Strengths
+                          <div className="p-3.5 rounded-lg bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20">
+                            <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                              What Went Well
                             </h4>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-foreground/75 leading-relaxed">
                               {exp.strengths}
                             </p>
                           </div>
                         )}
                         {exp.mistakes && (
-                          <div>
-                            <h4 className="text-xs font-medium text-destructive/80 uppercase tracking-wider mb-1">
-                              Mistakes
+                          <div className="p-3.5 rounded-lg bg-gradient-to-br from-destructive/10 to-destructive/5 border border-destructive/20">
+                            <h4 className="text-xs font-bold text-destructive uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-destructive"></span>
+                              Areas for Improvement
                             </h4>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-foreground/75 leading-relaxed">
                               {exp.mistakes}
                             </p>
                           </div>
@@ -256,48 +290,46 @@ const Experiences = () => {
                       </div>
                     )}
 
+                    {/* Preparation Strategy */}
                     <div>
-                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                        Preparation
+                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-2">
+                        <span className="inline-block w-1 h-1 rounded-full bg-pink-400"></span>
+                        Preparation Strategy
                       </h4>
-                      <p className="text-xs text-muted-foreground">
-                        {exp.preparation_strategy}
-                      </p>
+                      <p className="text-sm text-foreground/85 leading-relaxed">{exp.preparation_strategy}</p>
                     </div>
                   </div>
 
-                  {/* Like and Connect Buttons */}
-                  <div className="mt-4 flex items-center gap-2">
+                  {/* Action Buttons */}
+                  <div className="pt-4 border-t border-border/50 flex items-center gap-2.5">
                     <button
                       onClick={() => handleToggleLike(exp.id)}
                       disabled={isLiking}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-all duration-200 ${
+                      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg font-semibold text-xs transition-all duration-200 ${
                         isLiked
-                          ? "bg-destructive/20 text-destructive hover:bg-destructive/30"
-                          : "bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground"
+                          ? "bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30"
+                          : "bg-secondary hover:bg-secondary/70 text-muted-foreground hover:text-foreground border border-secondary"
                       } ${isLiking ? "opacity-50 cursor-not-allowed" : ""}`}
                       title={user ? (isLiked ? "Unlike" : "Like") : "Login to like"}
                     >
                       <Heart
-                        className={`h-4 w-4 ${isLiked ? "fill-current" : ""}`}
+                        className={`h-4 w-4 transition-all ${isLiked ? "fill-current scale-105" : ""}`}
                       />
-                      <span className="text-xs font-medium">
-                        {exp.likes || 0}
-                      </span>
+                      <span className="font-semibold">{exp.likes || 0}</span>
                     </button>
 
                     <button
                       onClick={() => handleConnect(exp.id, exp.user_id, exp.user_name || userInfo.name || "User")}
                       disabled={connecting.has(exp.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-all duration-200 ${
+                      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg font-semibold text-xs transition-all duration-200 border ${
                         connecting.has(exp.id)
-                          ? "opacity-50 cursor-not-allowed bg-secondary text-muted-foreground"
-                          : "bg-primary/20 text-primary hover:bg-primary/30"
+                          ? "opacity-60 cursor-not-allowed bg-secondary text-muted-foreground border-secondary"
+                          : "bg-gradient-to-r from-primary/20 to-accent/20 text-primary hover:from-primary/30 hover:to-accent/30 border border-primary/30 hover:border-primary/50"
                       }`}
                       title="Connect with this user for chat"
                     >
                       <MessageCircle className="h-4 w-4" />
-                      <span className="text-xs font-medium">
+                      <span className="font-semibold">
                         {connecting.has(exp.id) ? "Connecting..." : "Connect"}
                       </span>
                     </button>
