@@ -166,7 +166,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (profileError) {
           console.error('Profile creation error:', profileError);
-          // Don't throw - user auth was successful even if profile failed
+          throw new Error(`Profile creation failed: ${profileError.message}`);
         } else {
           console.log("Profile created successfully");
         }
