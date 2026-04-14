@@ -8,6 +8,10 @@ export interface Message {
   content: string;
   read_at: string | null;
   created_at: string;
+  file_path: string | null;
+  file_name: string | null;
+  file_size: number | null;
+  file_type: string | null;
   sender?: {
     id: string;
     name?: string;
@@ -30,6 +34,13 @@ export interface UseMessagesReturn {
 
 export interface UseSendMessageReturn {
   sendMessage: (content: string) => Promise<string>;
+  sendMessageWithFile: (
+    content: string,
+    filePath: string,
+    fileName: string,
+    fileSize: number,
+    fileType: string
+  ) => Promise<string>;
   loading: boolean;
   error: string | null;
 }
@@ -159,6 +170,7 @@ export function useMessages(conversationId: string): UseMessagesReturn {
 /**
  * Hook to send messages
  * - Sends message to Supabase
+ * - Supports messages with file attachments
  * - Returns real message ID on success
  */
 export function useSendMessage(
@@ -206,7 +218,55 @@ export function useSendMessage(
     [conversationId, userId]
   );
 
-  return { sendMessage, loading, error };
+  const sendMessageWithFile = useCallback(
+    async (
+      content: string,
+      filePath: string,
+      fileName: string,
+      fileSize: number,
+      fileType: string
+    ): Promise<string> => {
+      if (!conversationId || !userId) {
+        throw new Error("Invalid message data");
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        const { data, error: insertError } = await supabase
+          .from("messages")
+          .insert([
+            {
+              conversation_id: conversationId,
+              sender_id: userId,
+              content: content.trim() || "Sent a resume",
+              file_path: filePath,
+              file_name: fileName,
+              file_size: fileSize,
+              file_type: fileType,
+            },
+          ])
+          .select("id")
+          .single();
+
+        if (insertError) throw insertError;
+
+        return data.id;
+      } catch (err) {
+        const errorMsg =
+          err instanceof Error ? err.message : "Failed to send message with file";
+        setError(errorMsg);
+        console.error("Error sending message with file:", err);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [conversationId, userId]
+  );
+
+  return { sendMessage, sendMessageWithFile, loading, error };
 }
 
 /**

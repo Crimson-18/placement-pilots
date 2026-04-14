@@ -1,6 +1,13 @@
 import { supabase } from "./supabase";
 
-export interface Message {
+export interface FileMetadata {
+  file_path: string | null;
+  file_name: string | null;
+  file_size: number | null;
+  file_type: string | null;
+}
+
+export interface Message extends FileMetadata {
   id: string;
   conversation_id: string;
   sender_id: string;
@@ -47,6 +54,51 @@ export async function sendMessage(
     return { ...data, sender } as Message;
   } catch (err) {
     console.error("Error sending message:", err);
+    throw err;
+  }
+}
+
+/**
+ * Send a message with file attachment
+ */
+export async function sendMessageWithFile(
+  conversationId: string,
+  senderId: string,
+  content: string,
+  filePath: string,
+  fileName: string,
+  fileSize: number,
+  fileType: string
+) {
+  try {
+    const { data, error } = await supabase
+      .from("messages")
+      .insert([
+        {
+          conversation_id: conversationId,
+          sender_id: senderId,
+          content: content.trim(),
+          file_path: filePath,
+          file_name: fileName,
+          file_size: fileSize,
+          file_type: fileType,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Fetch sender info separately
+    const { data: sender } = await supabase
+      .from("users")
+      .select("id, name, email")
+      .eq("id", senderId)
+      .maybeSingle();
+
+    return { ...data, sender } as Message;
+  } catch (err) {
+    console.error("Error sending message with file:", err);
     throw err;
   }
 }

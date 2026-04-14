@@ -14,7 +14,8 @@ import {
 } from "@/lib/conversationService";
 import { markMessagesAsRead } from "@/lib/messageService";
 import { useMessages, useSendMessage, useRealtimeMessages } from "@/hooks/useMessaging";
-import { MessageCircle, Send, X, Check } from "lucide-react";
+import { uploadResume, validateFile } from "@/lib/fileUploadService";
+import { MessageCircle, Send, X, Check, FileUp } from "lucide-react";
 import { toast } from "sonner";
 
 interface PendingRequest {
@@ -61,10 +62,14 @@ const PrepTalk = () => {
     null
   );
   const [messageContent, setMessageContent] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [processingRequest, setProcessingRequest] = useState<string>("");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Use messaging hooks for current conversation
   const {
@@ -75,7 +80,7 @@ const PrepTalk = () => {
     removeOptimisticMessage,
   } = useMessages(selectedConversation?.id || "");
 
-  const { sendMessage, loading: sendingMessage } = useSendMessage(
+  const { sendMessage, sendMessageWithFile, loading: sendingMessage } = useSendMessage(
     selectedConversation?.id || "",
     user?.id || ""
   );
@@ -240,59 +245,162 @@ const PrepTalk = () => {
     }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processFile(file);
+  };
+
+  const processFile = (file: File) => {
+    // Validate file
+    const validationError = validateFile(file);
+    if (validationError) {
+      toast.error(validationError);
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    setSelectedFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  const clearSelectedFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!messageContent.trim() || !selectedConversation?.id || !user?.id) return;
+    if (!selectedConversation?.id || !user?.id) return;
+
+    // Must have either text or file
+    if (!messageContent.trim() && !selectedFile) {
+      toast.error("Please enter a message or select a resume");
+      return;
+    }
 
     const messageText = messageContent.trim();
-    setMessageContent("");
 
     // Generate unique client ID for optimistic tracking
     const clientId = `opt-${Date.now()}-${Math.random()}`;
 
-    // Create optimistic message
-    const optimisticMessage = {
-      id: clientId,
-      _clientId: clientId,
-      _isOptimistic: true,
-      conversation_id: selectedConversation.id,
-      sender_id: user.id,
-      content: messageText,
-      created_at: new Date().toISOString(),
-      read_at: null,
-      sender: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-      },
-    };
-
-    // Add optimistic message to UI immediately
-    addOptimisticMessage(optimisticMessage);
-    scrollToBottom();
-
     try {
-      // Send message to server (non-blocking)
-      const realMessageId = await sendMessage(messageText);
+      setUploadingFile(true);
 
-      // Replace optimistic message with real one
-      confirmOptimisticMessage(clientId, realMessageId);
+      let fileData = {
+        file_path: null as string | null,
+        file_name: null as string | null,
+        file_size: null as number | null,
+        file_type: null as string | null,
+      };
 
-      // Update conversation metadata
-      await updateConversationLastMessage(selectedConversation.id);
+      // Upload file if selected
+      if (selectedFile) {
+        try {
+          const uploadResult = await uploadResume(
+            selectedFile,
+            user.id,
+            selectedConversation.id
+          );
+          fileData = {
+            file_path: uploadResult.filePath,
+            file_name: uploadResult.fileName,
+            file_size: uploadResult.fileSize,
+            file_type: uploadResult.fileType,
+          };
+        } catch (uploadErr) {
+          const errorMsg = uploadErr instanceof Error ? uploadErr.message : "Failed to upload resume";
+          toast.error(errorMsg);
+          console.error("File upload error:", uploadErr);
+          return;
+        }
+      }
 
-      console.log("Message sent successfully:", realMessageId);
-    } catch (err) {
-      console.error("Error sending message:", err);
+      // Create optimistic message
+      const optimisticMessage = {
+        id: clientId,
+        _clientId: clientId,
+        _isOptimistic: true,
+        conversation_id: selectedConversation.id,
+        sender_id: user.id,
+        content: messageText || "Sent a resume",
+        created_at: new Date().toISOString(),
+        read_at: null,
+        ...fileData,
+        sender: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        },
+      };
 
-      // Remove optimistic message on failure
-      removeOptimisticMessage(clientId);
+      // Add optimistic message to UI immediately
+      addOptimisticMessage(optimisticMessage);
+      scrollToBottom();
 
-      // Restore user's text for retry
-      setMessageContent(messageText);
+      // Clear inputs
+      setMessageContent("");
+      clearSelectedFile();
 
-      toast.error("Failed to send message. Please try again.");
+      try {
+        // Send message to server (non-blocking)
+        let realMessageId: string;
+
+        if (selectedFile && fileData.file_path) {
+          realMessageId = await sendMessageWithFile(
+            messageText,
+            fileData.file_path,
+            fileData.file_name!,
+            fileData.file_size!,
+            fileData.file_type!
+          );
+        } else {
+          realMessageId = await sendMessage(messageText);
+        }
+
+        // Replace optimistic message with real one
+        confirmOptimisticMessage(clientId, realMessageId);
+
+        // Update conversation metadata
+        await updateConversationLastMessage(selectedConversation.id);
+
+        toast.success(selectedFile ? "Resume sent successfully!" : "Message sent!");
+        console.log("Message sent successfully:", realMessageId);
+      } catch (err) {
+        console.error("Error sending message:", err);
+
+        // Remove optimistic message on failure
+        removeOptimisticMessage(clientId);
+
+        // Restore user's text for retry
+        setMessageContent(messageText);
+        if (selectedFile) {
+          setSelectedFile(selectedFile);
+        }
+
+        toast.error("Failed to send message. Please try again.");
+      }
+    } finally {
+      setUploadingFile(false);
     }
   };
 
@@ -527,7 +635,59 @@ const PrepTalk = () => {
                                 : "bg-gradient-to-br from-secondary/60 to-secondary/40 text-foreground shadow-md shadow-secondary/10 border border-secondary/30"
                             }`}
                           >
-                            <p className="text-xs sm:text-sm break-words leading-relaxed">{msg.content}</p>
+                            {msg.content && (
+                              <p className="text-xs sm:text-sm break-words leading-relaxed">{msg.content}</p>
+                            )}
+
+                            {/* File Attachment Display - Improved Design */}
+                            {msg.file_path && msg.file_name && (
+                              <div className={`${msg.content ? "mt-3 pt-3 border-t border-current border-opacity-20" : ""}`}>
+                                <a
+                                  href={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/resumes/${encodeURIComponent(msg.file_path)}`}
+                                  download={msg.file_name}
+                                  className={`group inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all font-medium text-xs sm:text-sm cursor-pointer ${
+                                    msg.sender_id === user.id
+                                      ? "bg-primary-foreground/25 hover:bg-primary-foreground/35 active:scale-95"
+                                      : "bg-foreground/15 hover:bg-foreground/25 active:scale-95"
+                                  }`}
+                                  title={`Download ${msg.file_name}`}
+                                >
+                                  {/* File Icon */}
+                                  <div className="flex-shrink-0 p-1.5 rounded-lg bg-current bg-opacity-20 group-hover:bg-opacity-30 transition-all">
+                                    <FileUp className="h-4 w-4" />
+                                  </div>
+
+                                  {/* File Info */}
+                                  <div className="flex flex-col gap-0.5 min-w-0">
+                                    <span className="truncate max-w-[140px] sm:max-w-[220px] font-semibold">
+                                      {msg.file_name}
+                                    </span>
+                                    {msg.file_size && (
+                                      <span className="text-opacity-70 text-[10px] sm:text-xs">
+                                        {(msg.file_size / 1024 / 1024).toFixed(2)} MB
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Download Icon */}
+                                  <div className="flex-shrink-0 ml-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                                    <svg
+                                      className="h-4 w-4"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                      />
+                                    </svg>
+                                  </div>
+                                </a>
+                              </div>
+                            )}
                           </div>
                           <p
                             className={`text-xs mt-1 px-3 transition-opacity ${
@@ -557,24 +717,114 @@ const PrepTalk = () => {
                 {/* Message Input - Modern Design - Mobile optimized */}
                 <form
                   onSubmit={handleSendMessage}
-                  className="p-3 sm:p-5 border-t border-border/30 bg-gradient-to-r from-primary/3 to-accent/3 backdrop-blur-sm"
+                  className="p-3 sm:p-5 border-t border-border/30 bg-gradient-to-r from-primary/3 to-accent/3 backdrop-blur-sm space-y-3 sm:space-y-4"
                 >
+                  {/* Drag and Drop Zone / File Preview */}
+                  <div
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    className={`relative rounded-xl border-2 border-dashed transition-all duration-200 p-3 sm:p-4 ${
+                      selectedFile
+                        ? "border-success/50 bg-success/5"
+                        : "border-secondary/40 bg-secondary/5 hover:border-primary/40 hover:bg-primary/5"
+                    }`}
+                  >
+                    {selectedFile ? (
+                      // File Selected - Preview
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="flex-shrink-0 p-2 rounded-lg bg-success/20">
+                            <FileUp className="h-5 w-5 text-success" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-foreground truncate">
+                              {selectedFile.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={clearSelectedFile}
+                          disabled={uploadingFile}
+                          className="flex-shrink-0 p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                          title="Remove file"
+                        >
+                          <X className="h-5 w-5" />
+                        </button>
+                      </div>
+                    ) : (
+                      // No File - Upload Prompt
+                      <div className="text-center py-2">
+                        <div className="flex justify-center mb-2">
+                          <div className="p-2 rounded-lg bg-primary/10">
+                            <FileUp className="h-5 w-5 text-primary" />
+                          </div>
+                        </div>
+                        <p className="text-sm font-medium text-foreground">
+                          Drag resume here or click to upload
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          PDF files up to 2MB
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Hidden File Input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+
+                    {/* Clickable overlay for entire drag zone */}
+                    {!selectedFile && (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute inset-0 rounded-xl"
+                      />
+                    )}
+                  </div>
+
+                  {/* Message Input */}
                   <div className="flex gap-2 sm:gap-3 items-end">
                     <div className="flex-1 relative min-w-0">
                       <input
                         type="text"
                         value={messageContent}
                         onChange={(e) => setMessageContent(e.target.value)}
-                        placeholder="Type message..."
+                        placeholder={selectedFile ? "Add a note..." : "Type a message..."}
                         className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl bg-secondary/40 text-foreground placeholder-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/50 border border-secondary/30 transition-all duration-200 backdrop-blur-sm text-sm"
                       />
                     </div>
+
+                    {/* Send Button */}
                     <button
                       type="submit"
-                      disabled={!messageContent.trim()}
+                      disabled={
+                        (!messageContent.trim() && !selectedFile) ||
+                        uploadingFile ||
+                        sendingMessage
+                      }
                       className="flex-shrink-0 p-2.5 sm:p-3 rounded-xl bg-gradient-to-r from-primary to-accent text-primary-foreground hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center border border-primary/30"
+                      title={
+                        selectedFile
+                          ? "Send message and resume"
+                          : "Send message"
+                      }
                     >
-                      <Send className="h-4 sm:h-5 w-4 sm:w-5" />
+                      {uploadingFile || sendingMessage ? (
+                        <div className="relative w-4 sm:w-5 h-4 sm:h-5">
+                          <div className="absolute inset-0 border-2 border-transparent border-t-primary-foreground border-r-primary-foreground/50 rounded-full animate-spin" />
+                        </div>
+                      ) : (
+                        <Send className="h-4 sm:h-5 w-4 sm:w-5" />
+                      )}
                     </button>
                   </div>
                 </form>
