@@ -144,6 +144,22 @@ const Landing = () => {
         </div>
       </section>
 
+      {/* Admin Access */}
+      <section className="py-12 border-t border-border bg-card/30">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-sm text-muted-foreground mb-4">
+            Are you an administrator?
+          </p>
+          <Link
+            to="/admin-login"
+            className="inline-flex items-center gap-2 rounded-lg border border-border px-6 py-2 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+          >
+            <Shield className="h-4 w-4" />
+            Admin Portal
+          </Link>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -157,6 +173,7 @@ const Landing = () => {
             <Link to="/companies" className="hover:text-foreground transition-colors">Companies</Link>
             <Link to="/eligibility" className="hover:text-foreground transition-colors">Eligibility</Link>
             <Link to="/login" className="hover:text-foreground transition-colors">Login</Link>
+            <Link to="/admin-login" className="hover:text-foreground transition-colors">Admin</Link>
           </div>
         </div>
       </footer>

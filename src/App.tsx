@@ -7,6 +7,10 @@ import { AuthProvider } from "@/context/AuthContext";
 import Landing from "./pages/Landing";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminAddCompany from "./pages/AdminAddCompany";
+import AdminExperienceVerification from "./pages/AdminExperienceVerification";
 import Register from "./pages/Register";
 import VerifyEmail from "./pages/VerifyEmail";
 import Dashboard from "./pages/Dashboard";
@@ -31,6 +35,10 @@ const App = () => (
             <Route path="/" element={<Landing />} />
             <Route path="/home" element={<ProtectedRoute element={<Home />} />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/admin-login" element={<AdminLogin />} />
+            <Route path="/admin-dashboard" element={<AdminDashboard />} />
+            <Route path="/admin-companies" element={<AdminAddCompany />} />
+            <Route path="/admin-experiences" element={<AdminExperienceVerification />} />
             <Route path="/register" element={<Register />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
