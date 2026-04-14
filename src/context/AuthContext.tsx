@@ -2,6 +2,7 @@ import { createContext, useContext, useState, ReactNode, useEffect } from "react
 import { supabase } from "@/lib/supabase";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 import { fetchUserProfile } from "@/lib/userService";
+import { saveTempUser } from "@/lib/tempUserService";
 
 export interface User {
   id: string;
@@ -144,31 +145,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw signupError;
       }
 
-      // Create user profile in users table
+      // Step 1: Save profile data to temp_users table
+      await saveTempUser({
+        email,
+        name,
+        branch: branch || undefined,
+        cgpa: cgpa ? parseFloat(cgpa) : undefined,
+        graduation_year: graduationYear ? parseInt(graduationYear) : undefined,
+      });
+
+      // Step 2: Create minimal user record in users table
       if (data.user) {
-        console.log("Creating user profile for:", data.user.id);
+        console.log("Creating user record for:", data.user.id);
         
         const profileData = {
           id: data.user.id,
           email: email,
           name: name,
-          branch: branch || null,
-          graduation_year: graduationYear ? parseInt(graduationYear) : null,
-          cgpa: cgpa ? parseFloat(cgpa) : null,
+          branch: null,
+          graduation_year: null,
+          cgpa: null,
           email_verified: false,
         };
         
-        console.log("Profile data to insert:", profileData);
+        console.log("User record to insert:", profileData);
         
         const { error: profileError } = await supabase
           .from('users')
           .insert([profileData]);
 
         if (profileError) {
-          console.error('Profile creation error:', profileError);
-          throw new Error(`Profile creation failed: ${profileError.message}`);
+          console.error('User record creation error:', profileError);
+          throw new Error(`User record creation failed: ${profileError.message}`);
         } else {
-          console.log("Profile created successfully");
+          console.log("User record created successfully");
         }
       }
 

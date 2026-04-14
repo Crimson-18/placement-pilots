@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import logo from "@/assets/logo.png";
 import { supabase } from "@/lib/supabase";
+import { migrateTempUserToUsers } from "@/lib/tempUserService";
+import { useAuth } from "@/context/AuthContext";
 
 const VerifyEmail = () => {
   const [message, setMessage] = useState(
@@ -11,6 +13,7 @@ const VerifyEmail = () => {
   const [error, setError] = useState("");
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     const verifyEmail = async () => {
@@ -24,9 +27,24 @@ const VerifyEmail = () => {
           setMessage("Email verified successfully!");
           setIsVerified(true);
 
-          setTimeout(() => {
+          // Wait for auth state to update
+          setTimeout(async () => {
+            try {
+              const { data } = await supabase.auth.getSession();
+              if (data.session?.user) {
+                // Migrate temp user data to users table
+                await migrateTempUserToUsers(
+                  data.session.user.id,
+                  data.session.user.email || ""
+                );
+                console.log("Temp user data migrated to users table");
+              }
+            } catch (err) {
+              console.error("Error migrating temp user:", err);
+            }
+
             navigate("/dashboard");
-          }, 3000);
+          }, 2000);
         } else {
           // Check current session
           const { data } = await supabase.auth.getSession();
@@ -34,6 +52,17 @@ const VerifyEmail = () => {
           if (data.session?.user?.email_confirmed_at) {
             setMessage("Your email has already been verified!");
             setIsVerified(true);
+
+            // Migrate if not already done
+            try {
+              await migrateTempUserToUsers(
+                data.session.user.id,
+                data.session.user.email || ""
+              );
+            } catch (err) {
+              console.error("Error migrating temp user:", err);
+            }
+
             setTimeout(() => {
               navigate("/dashboard");
             }, 3000);
