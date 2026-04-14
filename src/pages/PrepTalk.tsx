@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/context/AuthContext";
@@ -12,7 +12,8 @@ import {
   getConversationBetweenUsers,
   updateConversationLastMessage,
 } from "@/lib/conversationService";
-import { getMessages, sendMessage, markMessagesAsRead, subscribeToMessages } from "@/lib/messageService";
+import { markMessagesAsRead } from "@/lib/messageService";
+import { useMessages, useSendMessage, useRealtimeMessages } from "@/hooks/useMessaging";
 import { MessageCircle, Send, X, Check } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,11 +39,15 @@ interface Message {
   sender_id: string;
   content: string;
   created_at: string;
+  read_at?: string | null;
   sender?: {
     id: string;
     name?: string;
     email?: string;
   };
+  // Optimistic UI tracking
+  _clientId?: string;
+  _isOptimistic?: boolean;
 }
 
 const PrepTalk = () => {
@@ -55,17 +60,27 @@ const PrepTalk = () => {
   const [selectedConversation, setSelectedConversation] = useState<any | null>(
     null
   );
-  const [messages, setMessages] = useState<Message[]>([]);
   const [messageContent, setMessageContent] = useState("");
 
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [loadingConversations, setLoadingConversations] = useState(true);
-  const [loadingMessages, setLoadingMessages] = useState(false);
   const [processingRequest, setProcessingRequest] = useState<string>("");
 
+  // Use messaging hooks for current conversation
+  const {
+    messages,
+    loading: loadingMessages,
+    addOptimisticMessage,
+    confirmOptimisticMessage,
+    removeOptimisticMessage,
+  } = useMessages(selectedConversation?.id || "");
+
+  const { sendMessage, loading: sendingMessage } = useSendMessage(
+    selectedConversation?.id || "",
+    user?.id || ""
+  );
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const unsubscribeRef = useRef<(() => void) | null>(null);
-  const optimisticMessagesRef = useRef<Message[]>([]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -137,74 +152,41 @@ const PrepTalk = () => {
 
   // Fetch messages for selected conversation with real-time updates
   useEffect(() => {
-    if (!selectedConversation?.id) {
-      // Cleanup subscription when no conversation is selected
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current();
-        unsubscribeRef.current = null;
-      }
+    if (!selectedConversation?.id || !user?.id) {
       return;
     }
 
-    // Initial fetch - full message history
-    const initialFetch = async () => {
-      try {
-        setLoadingMessages(true);
-        const msgs = await getMessages(selectedConversation.id);
-        setMessages(msgs as Message[]);
-
-        // Mark messages as read
-        await markMessagesAsRead(selectedConversation.id, user!.id);
-
-        setLoadingMessages(false);
-        scrollToBottom();
-      } catch (err) {
-        console.error("Error fetching messages:", err);
-        setLoadingMessages(false);
-      }
-    };
-
-    // Cleanup previous subscription if exists
-    if (unsubscribeRef.current) {
-      unsubscribeRef.current();
-      unsubscribeRef.current = null;
-    }
-
-    // Fetch initial messages
-    initialFetch();
-
-    // Setup real-time subscription for new messages only
-    const unsubscribe = subscribeToMessages(
-      selectedConversation.id,
-      (newMessage: Message) => {
-        // Add new message to state (avoid duplicates by checking if message already exists)
-        setMessages((prev) => {
-          // Check if message already exists (by ID)
-          if (prev.some((msg) => msg.id === newMessage.id)) {
-            return prev;
-          }
-          return [...prev, newMessage];
-        });
-
-        // Mark new messages as read immediately
-        markMessagesAsRead(selectedConversation.id, user!.id).catch((err) =>
-          console.error("Error marking messages as read:", err)
-        );
-
-        scrollToBottom();
-      }
+    // Mark messages as read when loading them
+    markMessagesAsRead(selectedConversation.id, user.id).catch((err) =>
+      console.error("Error marking messages as read:", err)
     );
 
-    unsubscribeRef.current = unsubscribe;
-
-    // Cleanup on unmount or conversation change
-    return () => {
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current();
-        unsubscribeRef.current = null;
-      }
-    };
+    scrollToBottom();
   }, [selectedConversation?.id, user?.id]);
+
+  // Setup realtime subscription for new messages
+  useRealtimeMessages(selectedConversation?.id || "", (newMessage) => {
+    // Check if message's ID already exists in the messages list
+    if (messages.some((msg) => msg.id === newMessage.id)) {
+      console.log("Duplicate message detected, skipping:", newMessage.id);
+      return;
+    }
+
+    // Add new message to state
+    addOptimisticMessage({
+      ...newMessage,
+      _isOptimistic: false,
+    });
+
+    // Auto-mark new messages as read
+    if (user?.id) {
+      markMessagesAsRead(selectedConversation?.id || "", user.id).catch((err) =>
+        console.error("Error marking messages as read:", err)
+      );
+    }
+
+    scrollToBottom();
+  });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -261,46 +243,57 @@ const PrepTalk = () => {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!messageContent.trim() || !selectedConversation?.id) return;
+    if (!messageContent.trim() || !selectedConversation?.id || !user?.id) return;
 
     const messageText = messageContent.trim();
     setMessageContent("");
 
-    // Optimistic UI update - show message immediately (no temp ID, looks real)
-    const optimisticMessage: Message = {
-      id: `msg-${Date.now()}`, // Real-looking ID
+    // Generate unique client ID for optimistic tracking
+    const clientId = `opt-${Date.now()}-${Math.random()}`;
+
+    // Create optimistic message
+    const optimisticMessage = {
+      id: clientId,
+      _clientId: clientId,
+      _isOptimistic: true,
       conversation_id: selectedConversation.id,
-      sender_id: user!.id,
+      sender_id: user.id,
       content: messageText,
       created_at: new Date().toISOString(),
+      read_at: null,
       sender: {
-        id: user!.id,
-        name: user!.name,
-        email: user!.email,
+        id: user.id,
+        name: user.name,
+        email: user.email,
       },
     };
 
-    // Add to messages immediately
-    setMessages((prev) => [...prev, optimisticMessage]);
+    // Add optimistic message to UI immediately
+    addOptimisticMessage(optimisticMessage);
     scrollToBottom();
 
-    // Send to server in background (don't wait, don't block UI)
-    sendMessage(selectedConversation.id, user!.id, messageText)
-      .then(async () => {
-        await updateConversationLastMessage(selectedConversation.id);
-        // Message will be received via real-time subscription
-      })
-      .catch((err) => {
-        console.error("Error sending message:", err);
-        
-        // Remove optimistic message on error
-        setMessages((prev) =>
-          prev.filter((msg) => msg.id !== optimisticMessage.id)
-        );
+    try {
+      // Send message to server (non-blocking)
+      const realMessageId = await sendMessage(messageText);
 
-        toast.error("Failed to send message");
-        setMessageContent(messageText); // Restore user's text
-      });
+      // Replace optimistic message with real one
+      confirmOptimisticMessage(clientId, realMessageId);
+
+      // Update conversation metadata
+      await updateConversationLastMessage(selectedConversation.id);
+
+      console.log("Message sent successfully:", realMessageId);
+    } catch (err) {
+      console.error("Error sending message:", err);
+
+      // Remove optimistic message on failure
+      removeOptimisticMessage(clientId);
+
+      // Restore user's text for retry
+      setMessageContent(messageText);
+
+      toast.error("Failed to send message. Please try again.");
+    }
   };
 
   if (!user?.id) {
