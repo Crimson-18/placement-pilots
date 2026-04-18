@@ -43,7 +43,7 @@ const VerifyEmail = () => {
               console.error("Error migrating temp user:", err);
             }
 
-            navigate("/dashboard");
+            navigate("/login");
           }, 2000);
         } else {
           // Check current session
@@ -64,7 +64,7 @@ const VerifyEmail = () => {
             }
 
             setTimeout(() => {
-              navigate("/dashboard");
+              navigate("/login");
             }, 3000);
           } else {
             setMessage(
@@ -121,7 +121,7 @@ const VerifyEmail = () => {
                 {message}
               </div>
               <p className="text-muted-foreground text-sm">
-                You'll be redirected to your dashboard once verified.
+                You'll be redirected to login once verified.
               </p>
             </>
           )}
